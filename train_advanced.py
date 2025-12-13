@@ -349,7 +349,7 @@ for bar in bars:
                 ha='center', va='bottom', fontweight='bold', fontsize=11)
 
 plt.tight_layout()
-plt.savefig('results/stage1_advanced_results.png', dpi=300, bbox_inches='tight')
+plt.savefig('results/train_advanced_results/stage1_advanced_results.png', dpi=300, bbox_inches='tight')
 print("\n✓ Saved: results/stage1_advanced_results.png")
 plt.close()
 
@@ -494,7 +494,7 @@ for bar in bars:
                 ha='center', va='bottom', fontweight='bold', fontsize=11)
 
 plt.tight_layout()
-plt.savefig('results/stage2_advanced_results.png', dpi=300, bbox_inches='tight')
+plt.savefig('results/train_advanced_results/stage2_advanced_results.png', dpi=300, bbox_inches='tight')
 print("\n✓ Saved: results/stage2_advanced_results.png")
 plt.close()
 
@@ -629,7 +629,7 @@ for bars in [bars1, bars2]:
                 f'{height:.3f}',
                 ha='center', va='bottom', fontsize=9, fontweight='bold')
 
-plt.savefig('results/full_advanced_pipeline_results.png', dpi=300, bbox_inches='tight')
+plt.savefig('results/train_advanced_results/full_advanced_pipeline_results.png', dpi=300, bbox_inches='tight')
 print("\n✓ Saved: results/full_advanced_pipeline_results.png")
 plt.close()
 
@@ -641,7 +641,7 @@ print("\n[6/8] Saving advanced models...")
 import pickle
 
 # Save Stage 1
-with open('models/advanced_stage1_ensemble.pkl', 'wb') as f:
+with open('models/train_advanced_models/advanced_stage1_ensemble.pkl', 'wb') as f:
     pickle.dump({
         'lgb': lgb_s1,
         'xgb': xgb_s1,
@@ -652,7 +652,7 @@ with open('models/advanced_stage1_ensemble.pkl', 'wb') as f:
 print("✓ Saved: models/advanced_stage1_ensemble.pkl")
 
 # Save Stage 2
-with open('models/advanced_stage2_ensemble.pkl', 'wb') as f:
+with open('models/train_advanced_models/advanced_stage2_ensemble.pkl', 'wb') as f:
     pickle.dump({
         'lgb': lgb_s2,
         'xgb': xgb_s2,
@@ -695,7 +695,7 @@ ax.set_ylim([0, 1.1])
 ax.grid(axis='y', alpha=0.3, linestyle='--')
 
 plt.tight_layout()
-plt.savefig('results/per_class_performance.png', dpi=300, bbox_inches='tight')
+plt.savefig('results/train_advanced_results/per_class_performance.png', dpi=300, bbox_inches='tight')
 print("✓ Saved: results/per_class_performance.png")
 plt.close()
 
@@ -749,13 +749,13 @@ IMPROVEMENTS OVER BASIC MODEL:
   ✓ Detailed metrics visualization
 
 {"="*80}
-TRAINING COMPLETE! Check results/ folder for detailed visualizations.
+TRAINING COMPLETE! Check results/train_advanced_results/ folder for detailed visualizations.
 {"="*80}
 """
 
 print(summary)
 
-with open('results/ADVANCED_RESULTS_SUMMARY.txt', 'w') as f:
+with open('results/train_advanced_results/ADVANCED_RESULTS_SUMMARY.txt', 'w') as f:
     f.write(summary)
 
 print("\n✓ Summary saved to: results/ADVANCED_RESULTS_SUMMARY.txt")

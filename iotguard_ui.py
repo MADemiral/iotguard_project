@@ -69,9 +69,9 @@ st.markdown("""
 @st.cache_resource
 def load_models():
     try:
-        with open('models/advanced_stage1_ensemble.pkl', 'rb') as f:
+        with open('models/train_advanced_models/advanced_stage1_ensemble.pkl', 'rb') as f:
             stage1 = pickle.load(f)
-        with open('models/advanced_stage2_ensemble.pkl', 'rb') as f:
+        with open('models/train_advanced_models/advanced_stage2_ensemble.pkl', 'rb') as f:
             stage2 = pickle.load(f)
         return stage1, stage2
     except FileNotFoundError:
