@@ -146,6 +146,7 @@ def advanced_feature_engineering(df):
 
 # Predict function
 def predict_traffic(df, stage1_models, stage2_models):
+    """Predict traffic using 2-stage ensemble with detailed stage info"""
     # Apply feature engineering
     df_features = advanced_feature_engineering(df)
     
@@ -166,15 +167,18 @@ def predict_traffic(df, stage1_models, stage2_models):
     
     ensemble_proba = (0.5 * lgb_proba + 0.3 * xgb_proba + 0.2 * rf_proba)
     binary_pred = (ensemble_proba > 0.5).astype(int)
+    stage1_confidence = np.where(binary_pred == 1, ensemble_proba, 1 - ensemble_proba)
     
     # Stage 2: Multi-class for attacks
     final_predictions = []
-    confidence_scores = []
+    stage2_confidence = []
+    stage2_activated = []
     
     for i in range(len(binary_pred)):
         if binary_pred[i] == 0:
             final_predictions.append('Benign')
-            confidence_scores.append(1 - ensemble_proba[i])
+            stage2_confidence.append(None)  # Stage 2 not used
+            stage2_activated.append(False)
         else:
             X_sample = df_features.iloc[i:i+1]
             X_sample_scaled = stage2_models['scaler'].transform(X_sample)
@@ -186,9 +190,10 @@ def predict_traffic(df, stage1_models, stage2_models):
             pred_class = np.argmax(ensemble_p)
             category = stage2_models['label_encoder'].inverse_transform([pred_class])[0]
             final_predictions.append(category)
-            confidence_scores.append(ensemble_p[pred_class])
+            stage2_confidence.append(ensemble_p[pred_class])
+            stage2_activated.append(True)
     
-    return final_predictions, confidence_scores
+    return final_predictions, stage1_confidence, stage2_confidence, stage2_activated
 
 # Main UI
 st.markdown('<div class="main-header">IoTGuard - AI-Powered IDS/IPS</div>', unsafe_allow_html=True)
@@ -293,11 +298,11 @@ if page == "System Information":
         st.markdown("#### Performance Metrics")
         col_a, col_b, col_c = st.columns(3)
         with col_a:
-            st.metric("Binary Detection", "99.1%", "+18%")
+            st.metric("Stage 1 (Binary)", "99.1%")
         with col_b:
-            st.metric("Attack Classification", "77.9%", "+8%")
+            st.metric("Stage 2 (Multi-Class)", "77.9%")
         with col_c:
-            st.metric("Overall F1-Score", "99.5%", "+20%")
+            st.metric("Overall F1-Score", "99.5%")
 
 elif page == "System Dashboard":
     st.markdown('<div class="sub-header">System Dashboard</div>', unsafe_allow_html=True)
@@ -443,20 +448,44 @@ elif page == "Manual Testing":
         df = pd.DataFrame(data)
         
         with st.spinner("🔄 Analyzing traffic pattern..."):
-            predictions, confidences = predict_traffic(df, stage1_models, stage2_models)
+            predictions, stage1_conf, stage2_conf, stage2_active = predict_traffic(df, stage1_models, stage2_models)
         
         result = predictions[0]
-        confidence = confidences[0]
+        s1_confidence = stage1_conf[0]
+        s2_confidence = stage2_conf[0]
+        is_stage2 = stage2_active[0]
         
         st.markdown("---")
         st.markdown("### 🎯 Detection Result")
         
+        # Show Stage 1 Result
+        st.markdown("#### 📊 Stage 1: Binary Classification")
+        col_s1_a, col_s1_b = st.columns(2)
+        with col_s1_a:
+            if result == "Benign":
+                st.success(f"✅ Classification: **BENIGN**")
+            else:
+                st.error(f"⚠️ Classification: **ATTACK**")
+        with col_s1_b:
+            st.info(f"🎯 Confidence: **{s1_confidence*100:.2f}%**")
+        
+        # Show Stage 2 Result if attack detected
+        if is_stage2:
+            st.markdown("#### 🔍 Stage 2: Attack Type Classification")
+            col_s2_a, col_s2_b = st.columns(2)
+            with col_s2_a:
+                st.warning(f"🏷️ Attack Type: **{result}**")
+            with col_s2_b:
+                st.info(f"🎯 Confidence: **{s2_confidence*100:.2f}%**")
+        
+        # Final result box
+        st.markdown("---")
         if result == "Benign":
             st.markdown(f"""
             <div class="benign-box">
                 <h2 style="color: #4caf50; margin: 0;">✅ BENIGN TRAFFIC</h2>
-                <p style="font-size: 1.2rem; margin: 10px 0;">Confidence: {confidence*100:.2f}%</p>
-                <p style="margin: 5px 0;">This traffic appears to be normal and safe.</p>
+                <p style="font-size: 1.1rem; margin: 10px 0;">This traffic appears to be normal and safe.</p>
+                <p style="margin: 5px 0;"><strong>Stage 1 Decision:</strong> Not malicious (Confidence: {s1_confidence*100:.1f}%)</p>
             </div>
             """, unsafe_allow_html=True)
         else:
@@ -464,8 +493,9 @@ elif page == "Manual Testing":
             <div class="attack-box">
                 <h2 style="color: #f44336; margin: 0;">⚠️ ATTACK DETECTED!</h2>
                 <p style="font-size: 1.5rem; margin: 10px 0; font-weight: bold;">Type: {result}</p>
-                <p style="font-size: 1.2rem; margin: 10px 0;">Confidence: {confidence*100:.2f}%</p>
-                <p style="margin: 5px 0;">⛔ Recommended Action: Block and investigate</p>
+                <p style="margin: 5px 0;"><strong>Stage 1:</strong> Classified as attack (Confidence: {s1_confidence*100:.1f}%)</p>
+                <p style="margin: 5px 0;"><strong>Stage 2:</strong> Identified as {result} (Confidence: {s2_confidence*100:.1f}%)</p>
+                <p style="margin: 10px 0; color: #c62828;"><strong>⛔ Recommended Action:</strong> Block and investigate</p>
             </div>
             """, unsafe_allow_html=True)
 
@@ -557,15 +587,17 @@ elif page == "CSV Analysis":
             
             if st.button("Analyze Data", type="primary"):
                 with st.spinner(f"🔄 Analyzing {len(df):,} samples (rows {start_idx:,} to {end_idx:,})..."):
-                    predictions, confidences = predict_traffic(df, stage1_models, stage2_models)
+                    predictions, stage1_conf, stage2_conf, stage2_active = predict_traffic(df, stage1_models, stage2_models)
                 
                 # Add results to dataframe
                 df['Prediction'] = predictions
-                df['Confidence'] = [f"{c*100:.2f}%" for c in confidences]
+                df['Stage1_Confidence'] = [f"{c*100:.2f}%" for c in stage1_conf]
+                df['Stage2_Used'] = ['Yes' if s else 'No' for s in stage2_active]
+                df['Stage2_Confidence'] = [f"{c*100:.2f}%" if c is not None else 'N/A' for c in stage2_conf]
                 df['Row_Number'] = range(start_idx, end_idx)
                 
                 # Summary statistics
-                st.markdown("### Detection Summary")
+                st.markdown("### 📊 Detection Summary")
                 st.caption(f"Analyzed rows {start_idx:,} to {end_idx:,} (Total: {total_rows:,} in file)")
                 
                 col1, col2, col3, col4 = st.columns(4)
@@ -575,14 +607,28 @@ elif page == "CSV Analysis":
                 attack_count = total - benign_count
                 
                 with col1:
-                    st.metric("Total Samples", total)
+                    st.metric("Total Samples", f"{total:,}")
                 with col2:
-                    st.metric("Benign", benign_count, delta=f"{benign_count/total*100:.1f}%")
+                    st.metric("Benign", f"{benign_count:,}", help=f"{benign_count/total*100:.1f}% of total")
                 with col3:
-                    st.metric("Attacks", attack_count, delta=f"{attack_count/total*100:.1f}%", delta_color="inverse")
+                    st.metric("Attacks", f"{attack_count:,}", help=f"{attack_count/total*100:.1f}% of total")
                 with col4:
-                    avg_confidence = np.mean(confidences) * 100
-                    st.metric("Avg Confidence", f"{avg_confidence:.1f}%")
+                    avg_s1_conf = np.mean(stage1_conf) * 100
+                    st.metric("Avg Stage 1 Conf", f"{avg_s1_conf:.1f}%")
+                
+                # Stage statistics
+                st.markdown("#### 🔍 Classification Stages")
+                col_st1, col_st2 = st.columns(2)
+                with col_st1:
+                    st.info(f"**Stage 1 (Binary):** Analyzed all {total:,} samples")
+                    st.caption(f"✓ {benign_count:,} classified as Benign | ✓ {attack_count:,} classified as Attack")
+                with col_st2:
+                    stage2_count = sum(stage2_active)
+                    st.info(f"**Stage 2 (Multi-Class):** Analyzed {stage2_count:,} attack samples")
+                    if stage2_count > 0:
+                        s2_confs = [c for c in stage2_conf if c is not None]
+                        avg_s2_conf = np.mean(s2_confs) * 100 if s2_confs else 0
+                        st.caption(f"Average confidence: {avg_s2_conf:.1f}%")
                 
                 # Attack breakdown
                 if attack_count > 0:
@@ -600,8 +646,62 @@ elif page == "CSV Analysis":
                     )
                     st.plotly_chart(fig, use_container_width=True)
                 
+                # Accuracy check if labels exist
+                if 'Label' in df_full.columns:
+                    st.markdown("### ✅ Accuracy Check")
+                    
+                    # Map labels to categories
+                    true_labels = df_full.iloc[start_idx:end_idx]['Label'].tolist()
+                    
+                    def map_to_category(label):
+                        if label == 'BENIGN':
+                            return 'Benign'
+                        elif 'DDOS' in label.upper() or 'DOS' in label.upper():
+                            return 'DDoS-DoS'
+                        elif 'MIRAI' in label.upper():
+                            return 'Mirai'
+                        elif 'RECON' in label.upper() or 'VULNERABILITY' in label.upper():
+                            return 'Reconnaissance'
+                        elif 'SPOOF' in label.upper() or 'MITM' in label.upper():
+                            return 'Spoofing'
+                        elif any(x in label.upper() for x in ['SQL', 'XSS', 'COMMAND', 'BROWSER', 'UPLOAD', 'BACKDOOR']):
+                            return 'Web-Based'
+                        elif 'BRUTE' in label.upper() or 'DICTIONARY' in label.upper():
+                            return 'BruteForce'
+                        return 'Unknown'
+                    
+                    true_categories = [map_to_category(l) for l in true_labels]
+                    
+                    # Calculate accuracies
+                    correct_total = sum(1 for t, p in zip(true_categories, predictions) if t == p)
+                    accuracy_total = correct_total / total * 100
+                    
+                    # Stage 1 accuracy (Binary: Benign vs Attack)
+                    true_binary = ['Benign' if t == 'Benign' else 'Attack' for t in true_categories]
+                    pred_binary = ['Benign' if p == 'Benign' else 'Attack' for p in predictions]
+                    correct_s1 = sum(1 for t, p in zip(true_binary, pred_binary) if t == p)
+                    accuracy_s1 = correct_s1 / total * 100
+                    
+                    col_acc1, col_acc2, col_acc3 = st.columns(3)
+                    with col_acc1:
+                        st.metric("Stage 1 Accuracy", f"{accuracy_s1:.2f}%", help="Binary classification (Benign vs Attack)")
+                    with col_acc2:
+                        st.metric("Overall Accuracy", f"{accuracy_total:.2f}%", help="Complete classification including attack types")
+                    with col_acc3:
+                        st.metric("Correct", f"{correct_total}/{total}", help=f"{correct_total} out of {total} samples classified correctly")
+                    
+                    # Show misclassifications
+                    df['True_Label'] = true_categories
+                    df['Correct'] = ['✓' if t == p else '✗' for t, p in zip(true_categories, predictions)]
+                    
+                    wrong_count = total - correct_total
+                    if wrong_count > 0:
+                        with st.expander(f"❌ View {wrong_count} Misclassifications"):
+                            misclassified = df[df['Correct'] == '✗'][['Row_Number', 'True_Label', 'Prediction', 'Stage1_Confidence', 'Stage2_Used', 'Stage2_Confidence']]
+                            st.dataframe(misclassified, use_container_width=True)
+                
                 # Download results
-                st.markdown("### Download Results")
+                st.markdown("### 💾 Download Results")
                 csv = df.to_csv(index=False)
                 
                 # Create descriptive filename
@@ -609,15 +709,19 @@ elif page == "CSV Analysis":
                 filename = f"iotguard_results_{scan_desc}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
                 
                 st.download_button(
-                    label=f"Download Analysis Results ({len(df):,} samples)",
+                    label=f"📥 Download Analysis Results ({len(df):,} samples)",
                     data=csv,
                     file_name=filename,
                     mime="text/csv",
                 )
                 
                 # Show detailed results
-                with st.expander("📋 Detailed Results"):
-                    st.dataframe(df[['Prediction', 'Confidence']])
+                with st.expander("📋 View Detailed Results Table"):
+                    display_cols = ['Row_Number', 'Prediction', 'Stage1_Confidence', 'Stage2_Used', 'Stage2_Confidence']
+                    if 'Correct' in df.columns:
+                        display_cols.insert(2, 'True_Label')
+                        display_cols.insert(3, 'Correct')
+                    st.dataframe(df[display_cols], use_container_width=True)
                 
         except Exception as e:
             st.error(f"❌ Error processing file: {str(e)}")
@@ -663,7 +767,7 @@ else:  # Batch Processing
                         if 'Label' in df.columns:
                             all_labels.extend(df['Label'].tolist())
                         
-                        predictions, confidences = predict_traffic(df, stage1_models, stage2_models)
+                        predictions, stage1_conf, stage2_conf, stage2_active = predict_traffic(df, stage1_models, stage2_models)
                         all_predictions.extend(predictions)
                         
                         progress_bar.progress((idx + 1) / len(selected_files))
@@ -680,11 +784,11 @@ else:  # Batch Processing
                     attacks = total - benign
                     
                     with col1:
-                        st.metric("Total Analyzed", total)
+                        st.metric("Total Analyzed", f"{total:,}")
                     with col2:
-                        st.metric("Benign Detected", benign)
+                        st.metric("Benign Detected", f"{benign:,}", help=f"{benign/total*100:.1f}% of total")
                     with col3:
-                        st.metric("Attacks Detected", attacks)
+                        st.metric("Attacks Detected", f"{attacks:,}", help=f"{attacks/total*100:.1f}% of total")
                     
                     # Distribution chart
                     pred_counts = pd.Series(all_predictions).value_counts()

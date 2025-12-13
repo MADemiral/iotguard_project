@@ -1,0 +1,240 @@
+# Ultra Advanced Training Configuration for IoTGuard IDS/IPS
+# CIC-IoT-2023 Dataset - Optimized for Maximum Performance
+
+dataset:
+  merged_csv_path: "../../dataset/CSV/MERGED_CSV/"
+  csv_pattern: "Merged*.csv"
+  train_files: 40  # Number of files for training (out of 63)
+  test_files: 15   # Number of files for testing
+  val_files: 8     # Number of files for validation
+  
+data_processing:
+  # Advanced sampling strategy for class balance
+  benign_sampling: "all"  # Keep all benign samples
+  attack_sampling_per_class: 100000  # Max samples per attack category
+  min_samples_per_class: 1000  # Minimum samples to keep a class
+  
+  # Feature engineering
+  polynomial_features: true
+  polynomial_degree: 2
+  interaction_features: true
+  statistical_features: true
+  time_based_features: true
+  
+  # Data cleaning
+  remove_duplicates: true
+  handle_missing: "median"  # Options: mean, median, drop
+  outlier_method: "isolation_forest"  # Options: iqr, isolation_forest, none
+  outlier_contamination: 0.05
+  
+  # Scaling and normalization
+  scaler_type: "robust"  # Options: standard, robust, minmax
+
+class_mapping:
+  # Hierarchical grouping for better classification
+  DDoS-DoS:
+    - "DDOS-ACK_FRAGMENTATION"
+    - "DDOS-HTTP_FLOOD"
+    - "DDOS-ICMP_FLOOD"
+    - "DDOS-ICMP_FRAGMENTATION"
+    - "DDOS-PSHACK_FLOOD"
+    - "DDOS-RSTFINFLOOD"
+    - "DDOS-SYN_FLOOD"
+    - "DDOS-SLOWLORIS"
+    - "DDOS-SYNONYMOUSIP_FLOOD"
+    - "DDOS-TCP_FLOOD"
+    - "DDOS-UDP_FLOOD"
+    - "DDOS-UDP_FRAGMENTATION"
+    - "DOS-HTTP_FLOOD"
+    - "DOS-SYN_FLOOD"
+    - "DOS-TCP_FLOOD"
+    - "DOS-UDP_FLOOD"
+  
+  Mirai:
+    - "MIRAI-GREETH_FLOOD"
+    - "MIRAI-GREIP_FLOOD"
+    - "MIRAI-UDPPLAIN"
+  
+  Reconnaissance:
+    - "RECON-HOSTDISCOVERY"
+    - "RECON-OSSCAN"
+    - "RECON-PINGSWEEP"
+    - "RECON-PORTSCAN"
+    - "VULNERABILITYSCAN"
+  
+  Spoofing:
+    - "DNS_SPOOFING"
+    - "MITM-ARPSPOOFING"
+  
+  Web-Based:
+    - "BROWSERHIJACKING"
+    - "COMMANDINJECTION"
+    - "SQLINJECTION"
+    - "XSS"
+    - "UPLOADING_ATTACK"
+    - "BACKDOOR_MALWARE"
+  
+  BruteForce:
+    - "DICTIONARYBRUTEFORCE"
+  
+  Benign:
+    - "BENIGN"
+
+# Stage 1: Binary Classification (Benign vs Attack)
+stage1_binary:
+  models:
+    lightgbm:
+      enabled: true
+      num_leaves: 127
+      max_depth: 15
+      learning_rate: 0.03
+      n_estimators: 500
+      min_child_samples: 30
+      subsample: 0.8
+      colsample_bytree: 0.8
+      reg_alpha: 0.1
+      reg_lambda: 0.1
+      class_weight: "balanced"
+      
+    xgboost:
+      enabled: true
+      max_depth: 12
+      learning_rate: 0.03
+      n_estimators: 500
+      min_child_weight: 3
+      subsample: 0.8
+      colsample_bytree: 0.8
+      gamma: 0.1
+      reg_alpha: 0.1
+      reg_lambda: 1.0
+      scale_pos_weight: 2.0
+      
+    catboost:
+      enabled: true
+      depth: 10
+      learning_rate: 0.03
+      iterations: 500
+      l2_leaf_reg: 3.0
+      border_count: 128
+      random_strength: 0.5
+      
+    neural_network:
+      enabled: true
+      hidden_layers: [256, 128, 64, 32]
+      dropout_rate: 0.3
+      activation: "relu"
+      optimizer: "adam"
+      learning_rate: 0.001
+      batch_size: 512
+      epochs: 50
+      early_stopping_patience: 10
+  
+  ensemble:
+    method: "weighted_average"  # Options: weighted_average, stacking, voting
+    weights:
+      lightgbm: 0.35
+      xgboost: 0.30
+      catboost: 0.25
+      neural_network: 0.10
+  
+  balancing:
+    method: "smote_tomek"  # Options: smote, adasyn, smote_tomek, smote_enn
+    sampling_strategy: "auto"
+    k_neighbors: 5
+
+# Stage 2: Multi-Class Attack Classification
+stage2_multiclass:
+  models:
+    lightgbm:
+      enabled: true
+      num_leaves: 127
+      max_depth: 15
+      learning_rate: 0.02
+      n_estimators: 600
+      min_child_samples: 20
+      subsample: 0.8
+      colsample_bytree: 0.8
+      reg_alpha: 0.1
+      reg_lambda: 0.1
+      class_weight: "balanced"
+      
+    xgboost:
+      enabled: true
+      max_depth: 12
+      learning_rate: 0.02
+      n_estimators: 600
+      min_child_weight: 2
+      subsample: 0.8
+      colsample_bytree: 0.8
+      gamma: 0.1
+      reg_alpha: 0.1
+      reg_lambda: 1.0
+      
+    catboost:
+      enabled: true
+      depth: 10
+      learning_rate: 0.02
+      iterations: 600
+      l2_leaf_reg: 3.0
+      border_count: 128
+      random_strength: 0.5
+      class_weights: [1, 1, 1, 1, 1, 1]  # Will be auto-balanced
+  
+  ensemble:
+    method: "weighted_average"
+    weights:
+      lightgbm: 0.40
+      xgboost: 0.35
+      catboost: 0.25
+  
+  balancing:
+    method: "smote_undersampling"  # SMOTE + RandomUnderSampler
+    smote_strategy: "not majority"
+    undersample_strategy: "auto"
+    k_neighbors: 5
+
+# Training Configuration
+training:
+  random_seed: 42
+  use_gpu: false
+  n_jobs: -1  # Use all CPU cores
+  verbose: 1
+  
+  # Cross-validation
+  use_cross_validation: false
+  cv_folds: 5
+  
+  # Feature selection
+  feature_selection: true
+  feature_selection_method: "mutual_info"  # Options: mutual_info, chi2, recursive
+  n_features_to_select: "auto"  # Or specify number
+  
+  # Model persistence
+  save_intermediate: true
+  checkpoint_frequency: 100  # Save every N iterations
+
+# Output Configuration
+output:
+  models_dir: "../../models/train_ultra_advanced_models/"
+  results_dir: "../../results/train_ultra_advanced_results/"
+  logs_dir: "../../logs/"
+  
+  # Metadata
+  generate_metadata: true
+  metadata_filename: "model_metadata.json"
+  
+  # Visualizations
+  generate_plots: true
+  plot_format: "png"
+  plot_dpi: 300
+  
+  # Reports
+  generate_report: true
+  report_format: "txt"  # Options: txt, html, pdf
+  
+  # Model files
+  compression: true  # Use compression for pickle files
+  save_feature_importance: true
+  save_confusion_matrices: true
+  save_roc_curves: true
+  save_precision_recall_curves: true

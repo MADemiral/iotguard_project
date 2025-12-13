@@ -21,7 +21,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import glob
 import os
+import json
 from collections import Counter
+from datetime import datetime
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -663,6 +665,120 @@ with open('../../models/train_advanced_models/advanced_stage2_ensemble.pkl', 'wb
     }, f)
 print("✓ Saved: models/advanced_stage2_ensemble.pkl")
 
+# Save metadata JSON
+metadata = {
+    "model_info": {
+        "name": "IoTGuard Advanced 2-Stage Ensemble",
+        "version": "1.0",
+        "architecture": "2-Stage Binary + Multi-Class Classification",
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "framework": "LightGBM + XGBoost + RandomForest"
+    },
+    "training_data": {
+        "total_samples": len(df_train),
+        "training_samples": len(df_train),
+        "testing_samples": len(df_test),
+        "benign_train": int((df_train['Binary'] == 0).sum()),
+        "attack_train": int((df_train['Binary'] == 1).sum()),
+        "benign_test": int((df_test['Binary'] == 0).sum()),
+        "attack_test": int((df_test['Binary'] == 1).sum()),
+        "features": {
+            "original_features": 39,
+            "engineered_features": X_train_s1.shape[1] - 39,
+            "total_features": X_train_s1.shape[1]
+        },
+        "dataset": "CIC-IoT-2023",
+        "csv_files_used": len(train_files[:25])
+    },
+    "stage1_binary": {
+        "purpose": "Binary Classification (Benign vs Attack)",
+        "models": ["LightGBM", "XGBoost", "RandomForest"],
+        "ensemble_weights": {"lgb": 0.5, "xgb": 0.3, "rf": 0.2},
+        "balancing": "SMOTE",
+        "scaler": "RobustScaler",
+        "performance": {
+            "accuracy": float(accuracy_s1),
+            "precision": float(precision_s1),
+            "recall": float(recall_s1),
+            "f1_score": float(f1_s1)
+        },
+        "hyperparameters": {
+            "lgb": {
+                "num_leaves": 63,
+                "learning_rate": 0.05,
+                "max_depth": 12,
+                "num_boost_round": 200
+            },
+            "xgb": {
+                "n_estimators": 200,
+                "max_depth": 12,
+                "learning_rate": 0.05,
+                "scale_pos_weight": 1.5
+            },
+            "rf": {
+                "n_estimators": 100,
+                "max_depth": 15,
+                "class_weight": "balanced"
+            }
+        }
+    },
+    "stage2_multiclass": {
+        "purpose": "Multi-Class Attack Type Classification",
+        "models": ["LightGBM", "XGBoost"],
+        "ensemble_weights": {"lgb": 0.6, "xgb": 0.4},
+        "attack_categories": list(label_encoder_s2.classes_),
+        "balancing": "SMOTE + RandomUnderSampler",
+        "scaler": "RobustScaler",
+        "performance": {
+            "accuracy": float(accuracy_s2),
+            "precision": float(precision_s2),
+            "recall": float(recall_s2),
+            "f1_score": float(f1_s2)
+        },
+        "hyperparameters": {
+            "lgb": {
+                "num_leaves": 63,
+                "learning_rate": 0.05,
+                "max_depth": 12,
+                "num_boost_round": 300,
+                "num_classes": len(label_encoder_s2.classes_)
+            },
+            "xgb": {
+                "n_estimators": 300,
+                "max_depth": 12,
+                "learning_rate": 0.05
+            }
+        }
+    },
+    "full_pipeline": {
+        "accuracy": float(accuracy_full),
+        "precision": float(precision_full),
+        "recall": float(recall_full),
+        "f1_score": float(f1_full),
+        "total_test_samples": len(y_all_true),
+        "benign_detected": int((pd.Series(final_predictions) == 'Benign').sum()),
+        "attacks_detected": int((pd.Series(final_predictions) != 'Benign').sum())
+    },
+    "files": {
+        "stage1_model": "models/train_advanced_models/advanced_stage1_ensemble.pkl",
+        "stage2_model": "models/train_advanced_models/advanced_stage2_ensemble.pkl",
+        "metadata": "models/train_advanced_models/model_metadata.json",
+        "results_summary": "results/train_advanced_results/ADVANCED_RESULTS_SUMMARY.txt",
+        "visualizations": [
+            "results/train_advanced_results/stage1_advanced_results.png",
+            "results/train_advanced_results/stage2_advanced_results.png",
+            "results/train_advanced_results/full_advanced_pipeline_results.png",
+            "results/train_advanced_results/per_class_performance.png"
+        ]
+    }
+}
+
+# Save metadata
+metadata_path = '../../models/train_advanced_models/model_metadata.json'
+with open(metadata_path, 'w') as f:
+    json.dump(metadata, f, indent=2)
+print(f"✓ Saved: models/train_advanced_models/model_metadata.json")
+
 # ============================================================================
 # PER-CLASS PERFORMANCE
 # ============================================================================
@@ -740,6 +856,7 @@ GENERATED FILES:
   • results/per_class_performance.png - Per-class detailed metrics
   • models/advanced_stage1_ensemble.pkl - Stage 1 ensemble model
   • models/advanced_stage2_ensemble.pkl - Stage 2 ensemble model
+  • models/model_metadata.json - Training metadata and model information
 
 IMPROVEMENTS OVER BASIC MODEL:
   ✓ Advanced feature engineering (+{X_train_s1.shape[1]-39} features)
