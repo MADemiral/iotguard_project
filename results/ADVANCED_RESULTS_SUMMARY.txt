@@ -1,0 +1,47 @@
+
+================================================================================
+IOTGUARD - ADVANCED 2-STAGE ENSEMBLE MODEL - RESULTS SUMMARY
+================================================================================
+
+TRAINING CONFIGURATION:
+  • Training Samples: 1,215,816
+  • Testing Samples: 256,051
+  • Total Features: 65 (39 original + 26 engineered)
+  • Models: Ensemble (LightGBM + XGBoost + RandomForest)
+
+STAGE 1 - BINARY CLASSIFICATION (Benign vs Attack):
+  • Accuracy:  0.9929
+  • Precision: 0.9992
+  • Recall:    0.9856
+  • F1-Score:  0.9924
+
+STAGE 2 - MULTI-CLASS CLASSIFICATION (Attack Types):
+  • Accuracy:  0.9975
+  • Precision: 0.9973
+  • Recall:    0.9975
+  • F1-Score:  0.9974
+
+FULL PIPELINE - COMPLETE SYSTEM:
+  • Accuracy:  0.9928
+  • Precision: 0.9922
+  • Recall:    0.9928
+  • F1-Score:  0.9911
+
+GENERATED FILES:
+  • results/stage1_advanced_results.png - Stage 1 performance with metrics
+  • results/stage2_advanced_results.png - Stage 2 performance with metrics
+  • results/full_advanced_pipeline_results.png - Complete system performance
+  • results/per_class_performance.png - Per-class detailed metrics
+  • models/advanced_stage1_ensemble.pkl - Stage 1 ensemble model
+  • models/advanced_stage2_ensemble.pkl - Stage 2 ensemble model
+
+IMPROVEMENTS OVER BASIC MODEL:
+  ✓ Advanced feature engineering (+26 features)
+  ✓ Ensemble learning (3 models per stage)
+  ✓ Better balancing (ADASYN instead of SMOTE)
+  ✓ Deeper models (more trees, larger depth)
+  ✓ Detailed metrics visualization
+
+================================================================================
+TRAINING COMPLETE! Check results/ folder for detailed visualizations.
+================================================================================
