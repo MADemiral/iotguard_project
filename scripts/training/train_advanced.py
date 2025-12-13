@@ -30,15 +30,15 @@ print(" " * 20 + "IOTGUARD - ADVANCED 2-STAGE MODEL")
 print(" " * 15 + "Deep Learning + Ensemble + Optimization")
 print("="*80)
 
-os.makedirs('models', exist_ok=True)
-os.makedirs('results', exist_ok=True)
+os.makedirs('../../models', exist_ok=True)
+os.makedirs('../../results', exist_ok=True)
 
 # ============================================================================
 # STEP 1: LOAD MORE DATA
 # ============================================================================
 print("\n[1/8] Loading LARGE dataset...")
 
-csv_files = sorted(glob.glob('dataset/CSV/MERGED_CSV/*.csv'))
+csv_files = sorted(glob.glob('../../dataset/CSV/MERGED_CSV/*.csv'))
 print(f"Found {len(csv_files)} CSV files")
 
 n_train = int(len(csv_files) * 0.7)
@@ -349,7 +349,7 @@ for bar in bars:
                 ha='center', va='bottom', fontweight='bold', fontsize=11)
 
 plt.tight_layout()
-plt.savefig('results/train_advanced_results/stage1_advanced_results.png', dpi=300, bbox_inches='tight')
+plt.savefig('../../results/train_advanced_results/stage1_advanced_results.png', dpi=300, bbox_inches='tight')
 print("\n✓ Saved: results/stage1_advanced_results.png")
 plt.close()
 
@@ -494,7 +494,7 @@ for bar in bars:
                 ha='center', va='bottom', fontweight='bold', fontsize=11)
 
 plt.tight_layout()
-plt.savefig('results/train_advanced_results/stage2_advanced_results.png', dpi=300, bbox_inches='tight')
+plt.savefig('../../results/train_advanced_results/stage2_advanced_results.png', dpi=300, bbox_inches='tight')
 print("\n✓ Saved: results/stage2_advanced_results.png")
 plt.close()
 
@@ -629,7 +629,7 @@ for bars in [bars1, bars2]:
                 f'{height:.3f}',
                 ha='center', va='bottom', fontsize=9, fontweight='bold')
 
-plt.savefig('results/train_advanced_results/full_advanced_pipeline_results.png', dpi=300, bbox_inches='tight')
+plt.savefig('../../results/train_advanced_results/full_advanced_pipeline_results.png', dpi=300, bbox_inches='tight')
 print("\n✓ Saved: results/full_advanced_pipeline_results.png")
 plt.close()
 
@@ -641,7 +641,7 @@ print("\n[6/8] Saving advanced models...")
 import pickle
 
 # Save Stage 1
-with open('models/train_advanced_models/advanced_stage1_ensemble.pkl', 'wb') as f:
+with open('../../models/train_advanced_models/advanced_stage1_ensemble.pkl', 'wb') as f:
     pickle.dump({
         'lgb': lgb_s1,
         'xgb': xgb_s1,
@@ -652,7 +652,7 @@ with open('models/train_advanced_models/advanced_stage1_ensemble.pkl', 'wb') as 
 print("✓ Saved: models/advanced_stage1_ensemble.pkl")
 
 # Save Stage 2
-with open('models/train_advanced_models/advanced_stage2_ensemble.pkl', 'wb') as f:
+with open('../../models/train_advanced_models/advanced_stage2_ensemble.pkl', 'wb') as f:
     pickle.dump({
         'lgb': lgb_s2,
         'xgb': xgb_s2,
@@ -695,7 +695,7 @@ ax.set_ylim([0, 1.1])
 ax.grid(axis='y', alpha=0.3, linestyle='--')
 
 plt.tight_layout()
-plt.savefig('results/train_advanced_results/per_class_performance.png', dpi=300, bbox_inches='tight')
+plt.savefig('../../results/train_advanced_results/per_class_performance.png', dpi=300, bbox_inches='tight')
 print("✓ Saved: results/per_class_performance.png")
 plt.close()
 
@@ -755,7 +755,7 @@ TRAINING COMPLETE! Check results/train_advanced_results/ folder for detailed vis
 
 print(summary)
 
-with open('results/train_advanced_results/ADVANCED_RESULTS_SUMMARY.txt', 'w') as f:
+with open('../../results/train_advanced_results/ADVANCED_RESULTS_SUMMARY.txt', 'w') as f:
     f.write(summary)
 
 print("\n✓ Summary saved to: results/ADVANCED_RESULTS_SUMMARY.txt")
