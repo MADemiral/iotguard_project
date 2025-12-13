@@ -24,30 +24,35 @@ st.set_page_config(
 st.markdown("""
 <style>
     .main-header {
-        font-size: 3rem;
-        color: #1f77b4;
+        font-size: 2.5rem;
+        color: #2c3e50;
         text-align: center;
-        font-weight: bold;
-        margin-bottom: 1rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        letter-spacing: 1px;
     }
     .sub-header {
-        font-size: 1.5rem;
-        color: #ff7f0e;
-        font-weight: bold;
+        font-size: 1.3rem;
+        color: #34495e;
+        font-weight: 600;
         margin-top: 2rem;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 0.5rem;
     }
     .attack-box {
         padding: 20px;
-        border-radius: 10px;
+        border-radius: 8px;
         background-color: #ffebee;
-        border-left: 5px solid #f44336;
+        border-left: 4px solid #e74c3c;
         margin: 10px 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     .benign-box {
         padding: 20px;
-        border-radius: 10px;
+        border-radius: 8px;
         background-color: #e8f5e9;
-        border-left: 5px solid #4caf50;
+        border-left: 4px solid #27ae60;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         margin: 10px 0;
     }
     .metric-card {
@@ -186,8 +191,8 @@ def predict_traffic(df, stage1_models, stage2_models):
     return final_predictions, confidence_scores
 
 # Main UI
-st.markdown('<div class="main-header">🛡️ IoTGuard - AI-Powered IDS/IPS</div>', unsafe_allow_html=True)
-st.markdown('<p style="text-align: center; font-size: 1.2rem; color: #666;">Advanced Deep Learning System for IoT Network Security</p>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">IoTGuard - AI-Powered IDS/IPS</div>', unsafe_allow_html=True)
+st.markdown('<p style="text-align: center; font-size: 1.1rem; color: #7f8c8d;">Advanced Deep Learning System for IoT Network Security</p>', unsafe_allow_html=True)
 
 # Load models
 stage1_models, stage2_models = load_models()
@@ -197,34 +202,156 @@ if stage1_models is None or stage2_models is None:
 
 # Sidebar
 with st.sidebar:
-    st.image("https://img.icons8.com/fluency/96/000000/security-shield-green.png", width=100)
-    st.title("🔧 Control Panel")
+    st.markdown("### Navigation")
     
-    mode = st.radio(
-        "Select Mode:",
-        ["📝 Manual Entry", "📁 CSV Upload", "📊 Batch Analysis"],
-        index=0
+    page = st.radio(
+        "Select Page:",
+        ["System Dashboard", "Manual Testing", "CSV Analysis", "Batch Processing", "System Information"],
+        label_visibility="collapsed"
     )
     
     st.markdown("---")
-    st.markdown("### 📈 System Status")
-    st.success("✅ Models Loaded")
-    st.info("🔄 Ready for Detection")
+    st.markdown("### Quick Stats")
+    st.info("**Model Type:** Ensemble (LightGBM + XGBoost)")
+    st.info("**Detection Accuracy:** 99%+")
+    st.info("**Attack Categories:** 6 Types")
     
     st.markdown("---")
-    st.markdown("### 📋 Attack Categories")
-    st.markdown("""
-    - **DDoS-DoS**: Denial of Service
-    - **Mirai**: IoT Botnet
-    - **Recon**: Reconnaissance
-    - **Spoofing**: Identity Spoofing
-    - **Web**: Web Attacks
-    - **BruteForce**: Password Attacks
-    - **Benign**: Normal Traffic
-    """)
+    st.caption("IoTGuard v1.0 | 2025")
 
-# Main content
-if mode == "📝 Manual Entry":
+# Main content based on page selection
+if page == "System Information":
+    st.markdown('<div class="sub-header">System Information</div>', unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### About IoTGuard")
+        st.markdown("""
+        IoTGuard is an advanced AI-powered Intrusion Detection and Prevention System (IDS/IPS) 
+        specifically designed for IoT network security. The system uses a sophisticated 2-stage 
+        ensemble learning approach to detect and classify network attacks with high accuracy.
+        
+        **Key Features:**
+        - Real-time threat detection
+        - 2-stage classification architecture
+        - Ensemble learning (LightGBM + XGBoost)
+        - Support for 6 attack categories
+        - Batch processing capabilities
+        - CSV data analysis
+        - Manual traffic testing
+        """)
+        
+        st.markdown("#### Attack Categories")
+        st.markdown("""
+        | Category | Description |
+        |----------|-------------|
+        | **DDoS-DoS** | Distributed/Denial of Service attacks |
+        | **Mirai** | IoT botnet-based attacks |
+        | **Recon** | Network reconnaissance and scanning |
+        | **Spoofing** | Identity and DNS spoofing |
+        | **Web** | Web-based attacks (XSS, SQL injection) |
+        | **BruteForce** | Password brute force attempts |
+        | **Benign** | Normal, legitimate traffic |
+        """)
+    
+    with col2:
+        st.markdown("#### Model Architecture")
+        st.markdown("""
+        **Stage 1: Binary Classification**
+        - Purpose: Detect if traffic is benign or malicious
+        - Models: LightGBM + XGBoost + RandomForest ensemble
+        - Accuracy: 99.1%
+        - F1-Score: 99.5%
+        
+        **Stage 2: Multi-Class Classification**
+        - Purpose: Classify attack types
+        - Models: LightGBM + XGBoost ensemble
+        - Accuracy: 77.9%
+        - F1-Score: 80.0%
+        
+        **Feature Engineering:**
+        - 39 original network features
+        - 29 engineered features
+        - Total: 68 features for classification
+        """)
+        
+        st.markdown("#### Dataset Information")
+        st.markdown("""
+        **Training Data:**
+        - Dataset: CIC-IoT-2023
+        - Training samples: 1,215,816
+        - Testing samples: 256,051
+        - Benign ratio: 50.6%
+        
+        **Balancing Techniques:**
+        - SMOTE (Synthetic Minority Over-sampling)
+        - Cost-sensitive learning
+        - Random undersampling
+        """)
+        
+        st.markdown("#### Performance Metrics")
+        col_a, col_b, col_c = st.columns(3)
+        with col_a:
+            st.metric("Binary Detection", "99.1%", "+18%")
+        with col_b:
+            st.metric("Attack Classification", "77.9%", "+8%")
+        with col_c:
+            st.metric("Overall F1-Score", "99.5%", "+20%")
+
+elif page == "System Dashboard":
+    st.markdown('<div class="sub-header">System Dashboard</div>', unsafe_allow_html=True)
+    
+    # Display key metrics
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown("**Model Status**")
+        st.success("Operational")
+    with col2:
+        st.markdown("**Stage 1 Accuracy**")
+        st.info("99.1%")
+    with col3:
+        st.markdown("**Stage 2 Accuracy**")
+        st.info("77.9%")
+    with col4:
+        st.markdown("**Attack Types**")
+        st.info("6 Categories")
+    
+    st.markdown("---")
+    
+    st.markdown("### Quick Start Guide")
+    
+    tab1, tab2, tab3 = st.tabs(["Manual Testing", "CSV Upload", "Batch Analysis"])
+    
+    with tab1:
+        st.markdown("""
+        **Manual Testing** allows you to test individual network traffic samples:
+        1. Navigate to 'Manual Testing' page
+        2. Enter network feature values
+        3. Click 'Analyze Traffic' to get predictions
+        4. View detailed results and confidence scores
+        """)
+    
+    with tab2:
+        st.markdown("""
+        **CSV Analysis** enables bulk testing from CSV files:
+        1. Navigate to 'CSV Analysis' page
+        2. Upload your CSV file with network features
+        3. Choose scan mode (All, Batch, or Custom Range)
+        4. Analyze and download results
+        """)
+    
+    with tab3:
+        st.markdown("""
+        **Batch Processing** for analyzing dataset files:
+        1. Navigate to 'Batch Processing' page
+        2. Select CSV files from the dataset
+        3. Process multiple files simultaneously
+        4. Export comprehensive results
+        """)
+
+elif page == "Manual Testing":
     st.markdown('<div class="sub-header">Manual Traffic Analysis</div>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns(3)
@@ -269,7 +396,7 @@ if mode == "📝 Manual Entry":
         min_val = st.number_input("Min Value", 0.0, 100000.0, 50.0)
         max_val = st.number_input("Max Value", 0.0, 100000.0, 150.0)
     
-    if st.button("🔍 Analyze Traffic", type="primary", use_container_width=True):
+    if st.button("Analyze Traffic", type="primary", use_container_width=True):
         # Create dataframe with all required features
         data = {
             'Header_Length': [header_length],
@@ -342,8 +469,8 @@ if mode == "📝 Manual Entry":
             </div>
             """, unsafe_allow_html=True)
 
-elif mode == "📁 CSV Upload":
-    st.markdown('<div class="sub-header">Upload CSV File for Analysis</div>', unsafe_allow_html=True)
+elif page == "CSV Analysis":
+    st.markdown('<div class="sub-header">CSV File Analysis</div>', unsafe_allow_html=True)
     
     uploaded_file = st.file_uploader(
         "Choose a CSV file (must contain the required 39 network features)",
@@ -353,24 +480,93 @@ elif mode == "📁 CSV Upload":
     
     if uploaded_file is not None:
         try:
-            df = pd.read_csv(uploaded_file)
+            # Read file to get total rows
+            df_full = pd.read_csv(uploaded_file)
+            total_rows = len(df_full)
             
-            st.success(f"✅ File loaded successfully: {len(df)} samples")
+            st.success(f"✅ File loaded successfully: {total_rows:,} samples")
+            
+            # Batch/Filter Controls
+            st.markdown("### ⚙️ Scan Controls")
+            
+            col1, col2, col3 = st.columns([2, 2, 1])
+            
+            with col1:
+                scan_mode = st.radio(
+                    "Scan Mode:",
+                    ["Scan All", "Batch Scan", "Custom Range"],
+                    horizontal=True
+                )
+            
+            # Initialize variables
+            start_idx = 0
+            end_idx = total_rows
+            batch_size = 1000
+            
+            if scan_mode == "Batch Scan":
+                with col2:
+                    batch_size = st.number_input(
+                        "Batch Size (rows per scan):",
+                        min_value=10,
+                        max_value=total_rows,
+                        value=min(1000, total_rows),
+                        step=100,
+                        help="Number of rows to analyze at once"
+                    )
+                with col3:
+                    batch_num = st.number_input(
+                        "Batch #:",
+                        min_value=1,
+                        max_value=(total_rows // batch_size) + 1,
+                        value=1,
+                        help="Which batch to analyze"
+                    )
+                
+                start_idx = (batch_num - 1) * batch_size
+                end_idx = min(start_idx + batch_size, total_rows)
+                
+                st.info(f"📊 Will analyze rows {start_idx:,} to {end_idx:,} ({end_idx - start_idx:,} samples)")
+                
+            elif scan_mode == "Custom Range":
+                with col2:
+                    start_idx = st.number_input(
+                        "Start Row:",
+                        min_value=0,
+                        max_value=total_rows-1,
+                        value=0
+                    )
+                with col3:
+                    end_idx = st.number_input(
+                        "End Row:",
+                        min_value=start_idx+1,
+                        max_value=total_rows,
+                        value=min(start_idx + 1000, total_rows)
+                    )
+                
+                st.info(f"📊 Will analyze rows {start_idx:,} to {end_idx:,} ({end_idx - start_idx:,} samples)")
+            else:
+                st.info(f"📊 Will analyze all {total_rows:,} samples")
+            
+            # Select the data to analyze
+            df = df_full.iloc[start_idx:end_idx].copy()
             
             # Show preview
             with st.expander("👁️ Preview Data"):
+                st.write(f"Showing rows {start_idx} to {start_idx + min(10, len(df))}")
                 st.dataframe(df.head(10))
             
-            if st.button("🔍 Analyze All Samples", type="primary"):
-                with st.spinner(f"🔄 Analyzing {len(df)} samples..."):
+            if st.button("Analyze Data", type="primary"):
+                with st.spinner(f"🔄 Analyzing {len(df):,} samples (rows {start_idx:,} to {end_idx:,})..."):
                     predictions, confidences = predict_traffic(df, stage1_models, stage2_models)
                 
                 # Add results to dataframe
                 df['Prediction'] = predictions
                 df['Confidence'] = [f"{c*100:.2f}%" for c in confidences]
+                df['Row_Number'] = range(start_idx, end_idx)
                 
                 # Summary statistics
-                st.markdown("### 📊 Detection Summary")
+                st.markdown("### Detection Summary")
+                st.caption(f"Analyzed rows {start_idx:,} to {end_idx:,} (Total: {total_rows:,} in file)")
                 
                 col1, col2, col3, col4 = st.columns(4)
                 
@@ -390,7 +586,7 @@ elif mode == "📁 CSV Upload":
                 
                 # Attack breakdown
                 if attack_count > 0:
-                    st.markdown("### ⚠️ Attack Breakdown")
+                    st.markdown("### Attack Breakdown")
                     
                     attack_types = [p for p in predictions if p != 'Benign']
                     attack_counts = pd.Series(attack_types).value_counts()
@@ -405,12 +601,17 @@ elif mode == "📁 CSV Upload":
                     st.plotly_chart(fig, use_container_width=True)
                 
                 # Download results
-                st.markdown("### 💾 Download Results")
+                st.markdown("### Download Results")
                 csv = df.to_csv(index=False)
+                
+                # Create descriptive filename
+                scan_desc = f"rows{start_idx}-{end_idx}" if start_idx > 0 or end_idx < total_rows else "all"
+                filename = f"iotguard_results_{scan_desc}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                
                 st.download_button(
-                    label="📥 Download Analysis Results (CSV)",
+                    label=f"Download Analysis Results ({len(df):,} samples)",
                     data=csv,
-                    file_name=f"iotguard_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    file_name=filename,
                     mime="text/csv",
                 )
                 
@@ -421,8 +622,8 @@ elif mode == "📁 CSV Upload":
         except Exception as e:
             st.error(f"❌ Error processing file: {str(e)}")
 
-else:  # Batch Analysis
-    st.markdown('<div class="sub-header">Batch Analysis from Dataset</div>', unsafe_allow_html=True)
+else:  # Batch Processing
+    st.markdown('<div class="sub-header">Batch Processing from Dataset</div>', unsafe_allow_html=True)
     
     st.info("📂 Analyzing files from dataset/CSV/MERGED_CSV/")
     
@@ -443,7 +644,7 @@ else:  # Batch Analysis
             
             num_samples = st.slider("Samples per file", 100, 10000, 1000, 100)
             
-            if st.button("🚀 Start Batch Analysis", type="primary"):
+            if st.button("Start Analysis", type="primary"):
                 if len(selected_files) == 0:
                     st.warning("Please select at least one file")
                 else:
