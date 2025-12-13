@@ -1,0 +1,166 @@
+
+======================================================================
+IOTGUARD - IMPROVED TRAINING (Better Accuracy)
+======================================================================
+
+[1/7] Loading MORE CSV files for better training...
+Found 63 CSV files
+Training files: 44
+Testing files: 19
+
+Loading training data (MORE samples)...
+  Loaded 10000 from Merged01.csv
+  Loaded 10000 from Merged02.csv
+  Loaded 10000 from Merged03.csv
+  Loaded 10000 from Merged04.csv
+  Loaded 10000 from Merged05.csv
+  Loaded 10000 from Merged06.csv
+  Loaded 10000 from Merged07.csv
+  Loaded 10000 from Merged08.csv
+  Loaded 10000 from Merged09.csv
+  Loaded 10000 from Merged10.csv
+  Loaded 10000 from Merged11.csv
+  Loaded 10000 from Merged12.csv
+  Loaded 10000 from Merged13.csv
+  Loaded 10000 from Merged14.csv
+  Loaded 10000 from Merged15.csv
+  Loaded 10000 from Merged16.csv
+  Loaded 10000 from Merged17.csv
+  Loaded 10000 from Merged18.csv
+  Loaded 10000 from Merged19.csv
+  Loaded 10000 from Merged20.csv
+
+Total training samples: 200,000
+
+Loading testing data...
+  Loaded 5000 from Merged45.csv
+  Loaded 5000 from Merged46.csv
+  Loaded 5000 from Merged47.csv
+  Loaded 5000 from Merged48.csv
+  Loaded 5000 from Merged49.csv
+  Loaded 5000 from Merged50.csv
+  Loaded 5000 from Merged51.csv
+  Loaded 5000 from Merged52.csv
+
+Total testing samples: 40,000
+
+[2/7] Preparing data with IMPROVED class separation...
+
+Training data distribution:
+Category
+DDoS          144229
+DoS            34575
+Mirai          11267
+Benign          4730
+Recon           2983
+Spoofing        2051
+Web              111
+BruteForce        54
+Name: count, dtype: int64
+
+Testing data distribution:
+Category
+DDoS          28875
+DoS            6873
+Mirai          2271
+Benign          922
+Recon           592
+Spoofing        434
+Web              25
+BruteForce        8
+Name: count, dtype: int64
+
+✓ Data prepared with improved cleaning!
+
+[3/7] Training IMPROVED TIER 1: Isolation Forest...
+Benign training samples: 4,730
+Training IMPROVED Isolation Forest...
+
+======================================================================
+IMPROVED TIER 1 RESULTS
+======================================================================
+
+Classification Report:
+              precision    recall  f1-score   support
+
+      Benign       0.37      0.98      0.54       922
+      Attack       1.00      0.96      0.98     39078
+
+    accuracy                           0.96     40000
+   macro avg       0.69      0.97      0.76     40000
+weighted avg       0.99      0.96      0.97     40000
+
+
+Confusion Matrix:
+              Predicted Benign  Predicted Attack
+Actual Benign         902               20
+Actual Attack        1522            37556
+
+✓ Saved: results/improved_tier1_confusion_matrix.png
+
+[4/7] Training IMPROVED TIER 2: LightGBM with SMOTE...
+Attack training samples: 195,270
+Attack testing samples: 39,078
+
+Applying SMOTE to balance classes...
+Before SMOTE: Counter({np.int64(1): 144229, np.int64(2): 34575, np.int64(3): 11267, np.int64(4): 2983, np.int64(5): 2051, np.int64(6): 111, np.int64(0): 54})
+After SMOTE+Undersample: Counter({np.int64(0): 144229, np.int64(1): 144229, np.int64(2): 144229, np.int64(3): 144229, np.int64(4): 144229, np.int64(5): 144229, np.int64(6): 144229})
+
+Training IMPROVED LightGBM...
+[100]	training's multi_logloss: 0.4761
+[200]	training's multi_logloss: 0.378093
+[300]	training's multi_logloss: 0.333029
+[400]	training's multi_logloss: 0.304511
+[500]	training's multi_logloss: 0.287084
+
+======================================================================
+IMPROVED TIER 2 RESULTS
+======================================================================
+
+Classification Report:
+              precision    recall  f1-score   support
+
+  BruteForce       0.03      0.12      0.05         8
+        DDoS       0.95      0.67      0.78     28875
+         DoS       0.36      0.80      0.50      6873
+       Mirai       0.86      0.97      0.91      2271
+       Recon       0.85      0.55      0.67       592
+    Spoofing       0.59      0.59      0.59       434
+         Web       0.02      0.20      0.04        25
+
+    accuracy                           0.70     39078
+   macro avg       0.52      0.56      0.51     39078
+weighted avg       0.83      0.70      0.73     39078
+
+
+Confusion Matrix:
+[[    1     0     0     0     0     2     5]
+ [    1 19212  9555    84     3     7    13]
+ [    0  1090  5501   273     0     7     2]
+ [    0     0    58  2201     0    10     2]
+ [   12     0     0     1   328   137   114]
+ [   19     0     5     7    45   255   103]
+ [    1     0     0     0     8    11     5]]
+
+✓ Saved: results/improved_tier2_confusion_matrix.png
+
+[5/7] Testing IMPROVED Full Pipeline...
+Traceback (most recent call last):
+  File "/home/alpdemial/Desktop/seng_484_project/train_improved.py", line 312, in <module>
+    X_all_test_scaled = scaler.transform(X_all_test)
+  File "/home/alpdemial/miniconda3/envs/iotguard/lib/python3.10/site-packages/sklearn/utils/_set_output.py", line 316, in wrapped
+    data_to_wrap = f(self, X, *args, **kwargs)
+  File "/home/alpdemial/miniconda3/envs/iotguard/lib/python3.10/site-packages/sklearn/preprocessing/_data.py", line 1700, in transform
+    X = validate_data(
+  File "/home/alpdemial/miniconda3/envs/iotguard/lib/python3.10/site-packages/sklearn/utils/validation.py", line 2929, in validate_data
+    _check_feature_names(_estimator, X, reset=reset)
+  File "/home/alpdemial/miniconda3/envs/iotguard/lib/python3.10/site-packages/sklearn/utils/validation.py", line 2787, in _check_feature_names
+    raise ValueError(message)
+ValueError: The feature names should match those that were passed during fit.
+Feature names unseen at fit time:
+- flags_total
+- packet_rate_ratio
+- size_per_packet
+- syn_ack_ratio
+- variance_avg_ratio
+
