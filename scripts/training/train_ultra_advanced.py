@@ -73,7 +73,7 @@ sns.set_style('whitegrid')
 class UltraAdvancedTrainer:
     """Ultra Advanced ML Training Pipeline for IoT Intrusion Detection"""
     
-    def __init__(self, config_path='../../config_train_ultra_advanced.yaml'):
+    def __init__(self, config_path='config_train_ultra_advanced.yaml'):
         """Initialize trainer with configuration"""
         self.start_time = datetime.now()
         self.config = self.load_config(config_path)
@@ -85,7 +85,8 @@ class UltraAdvancedTrainer:
             'stage2_multiclass': {},
             'full_pipeline': {},
             'feature_engineering': {},
-            'files': {}
+            'files': {},
+            'stage1_nn': {}  # Added for neural network configuration
         }
         
     def load_config(self, config_path):
@@ -123,7 +124,7 @@ class UltraAdvancedTrainer:
         
         # RANDOMLY SHUFFLE FILES for better diversity
         import random
-        random.seed(42)  # For reproducibility
+        random.seed(57)  # For reproducibility
         random.shuffle(csv_files)
         print("✓ Files shuffled randomly for diverse sampling")
         
@@ -210,7 +211,7 @@ class UltraAdvancedTrainer:
         for category, rows in attack_dfs.items():
             category_df = pd.DataFrame(rows)
             if len(category_df) > max_per_class:
-                category_df = category_df.sample(n=max_per_class, random_state=42)
+                category_df = category_df.sample(n=max_per_class, random_state=57)
             sampled_attacks.append(category_df)
             print(f"  {category:20s}: {len(category_df):,} samples")
         
@@ -221,7 +222,7 @@ class UltraAdvancedTrainer:
             all_attacks = pd.DataFrame()
         
         combined_df = pd.concat([all_benign, all_attacks], ignore_index=True)
-        combined_df = combined_df.sample(frac=1, random_state=42).reset_index(drop=True)
+        combined_df = combined_df.sample(frac=1, random_state=57).reset_index(drop=True)
         
         benign_pct = 100 * len(all_benign) / len(combined_df) if len(combined_df) > 0 else 0
         print(f"\nCombined {split_name} set: {len(combined_df):,} samples ({benign_pct:.2f}% benign)")
@@ -382,15 +383,15 @@ class UltraAdvancedTrainer:
         print(f"\n✓ Applying {balance_method} balancing...")
         
         if balance_method == 'smote':
-            sampler = SMOTE(random_state=42, k_neighbors=self.config['stage1_binary']['balancing']['k_neighbors'])
+            sampler = SMOTE(random_state=57, k_neighbors=self.config['stage1_binary']['balancing'].get('k_neighbors', 5))
         elif balance_method == 'adasyn':
-            sampler = ADASYN(random_state=42, n_neighbors=self.config['stage1_binary']['balancing']['k_neighbors'])
+            sampler = ADASYN(random_state=57, n_neighbors=self.config['stage1_binary']['balancing']['k_neighbors'])
         elif balance_method == 'smote_tomek':
-            sampler = SMOTETomek(random_state=42)
+            sampler = SMOTETomek(random_state=57)
         elif balance_method == 'smote_enn':
-            sampler = SMOTEENN(random_state=42)
+            sampler = SMOTEENN(random_state=57)
         else:
-            sampler = SMOTE(random_state=42)
+            sampler = SMOTE(random_state=57)
         
         X_train_balanced, y_train_balanced = sampler.fit_resample(X_train_scaled, y_train)
         
@@ -425,7 +426,7 @@ class UltraAdvancedTrainer:
                 reg_alpha=lgb_params['reg_alpha'],
                 reg_lambda=lgb_params['reg_lambda'],
                 class_weight=lgb_params['class_weight'],
-                random_state=42,
+                random_state=57,
                 n_jobs=-1,
                 verbose=-1
             )
@@ -449,7 +450,7 @@ class UltraAdvancedTrainer:
                 reg_alpha=xgb_params['reg_alpha'],
                 reg_lambda=xgb_params['reg_lambda'],
                 scale_pos_weight=xgb_params['scale_pos_weight'],
-                random_state=42,
+                random_state=57,
                 n_jobs=-1,
                 verbosity=0
             )
@@ -469,7 +470,7 @@ class UltraAdvancedTrainer:
                 l2_leaf_reg=cb_params['l2_leaf_reg'],
                 border_count=cb_params['border_count'],
                 random_strength=cb_params['random_strength'],
-                random_state=42,
+                random_state=57,
                 verbose=0
             )
             self.stage1_models['catboost'].fit(X_train, y_train)
@@ -519,32 +520,69 @@ class UltraAdvancedTrainer:
         
         print(f"\n✓ Stage 1 training complete - {len(self.stage1_models)} models trained")
     
-    def evaluate_stage1(self, X_test, y_test):
-        """Evaluate Stage 1 ensemble"""
+    def evaluate_stage1(self, X_val, y_val, X_test, y_test):
+        """Evaluate Stage 1 ensemble with validation-based threshold tuning"""
         print(f"\n{'='*80}")
         print("STEP 5: EVALUATING STAGE 1 (Binary Classification)")
         print(f"{'='*80}")
         
         weights = self.config['stage1_binary']['ensemble']['weights']
         
-        # Get predictions from each model
-        predictions = {}
-        for name, model in self.stage1_models.items():
-            if name == 'neural_network' and TENSORFLOW_AVAILABLE:
-                pred = (model.predict(X_test, verbose=0) > 0.5).astype(int).flatten()
-            else:
-                pred = model.predict(X_test)
-            predictions[name] = pred
-            
-            acc = accuracy_score(y_test, pred)
-            print(f"\n{name.capitalize():15s}: Accuracy = {acc:.4f}")
+        # Build validation and test probabilities for threshold tuning
+        val_probas = []
+        test_probas = []
+        model_names = []
         
-        # Ensemble prediction
-        ensemble_pred = np.zeros(len(y_test))
-        for name, pred in predictions.items():
-            weight = weights.get(name, 0)
-            ensemble_pred += weight * pred
-        ensemble_pred = (ensemble_pred > 0.5).astype(int)
+        for name, model in self.stage1_models.items():
+            model_names.append(name)
+            if name == 'neural_network' and TENSORFLOW_AVAILABLE:
+                p_val = model.predict(X_val, verbose=0).flatten()
+                p_test = model.predict(X_test, verbose=0).flatten()
+            else:
+                # sklearn models: use predict_proba when available
+                try:
+                    p_val = model.predict_proba(X_val)[:, 1]
+                    p_test = model.predict_proba(X_test)[:, 1]
+                except Exception:
+                    # fallback to predict (0/1)
+                    p_val = model.predict(X_val).astype(float)
+                    p_test = model.predict(X_test).astype(float)
+            val_probas.append(p_val)
+            test_probas.append(p_test)
+            # quick per-model accuracy on test
+            acc = accuracy_score(y_test, (p_test > 0.5).astype(int))
+            print(f"\n{name.capitalize():15s}: Test Accuracy = {acc:.4f}")
+
+        # Weighted ensemble probabilities
+        weights_list = [weights.get(n, 0) for n in model_names]
+        val_ensemble_proba = np.zeros(len(X_val))
+        test_ensemble_proba = np.zeros(len(X_test))
+        for w, vp, tp in zip(weights_list, val_probas, test_probas):
+            val_ensemble_proba += w * vp
+            test_ensemble_proba += w * tp
+
+        # Tune threshold on validation set to maximize recall (with a precision floor)
+        best_thr = 0.5
+        best_rec = -1.0
+        min_precision = float(self.config['stage1_binary'].get('min_precision_for_threshold', 0.45))
+        for thr in np.linspace(0.3, 0.75, 19):
+            preds = (val_ensemble_proba > thr).astype(int)
+            prec = precision_score(y_val, preds, zero_division=0)
+            rec = recall_score(y_val, preds, zero_division=0)
+            # prefer higher recall but enforce minimum precision
+            if prec >= min_precision and rec > best_rec:
+                best_rec = rec
+                best_thr = thr
+        # if no threshold satisfied precision floor, pick max recall threshold
+        if best_rec < 0:
+            thresholds = np.linspace(0.3, 0.75, 19)
+            recalls = [recall_score(y_val, (val_ensemble_proba > t).astype(int)) for t in thresholds]
+            best_thr = float(thresholds[np.argmax(recalls)])
+
+        print(f"\nChosen ensemble threshold (tuned on validation): {best_thr:.3f}")
+        print(f"  Min precision constraint: {min_precision:.2f}")
+
+        ensemble_pred = (test_ensemble_proba > best_thr).astype(int)
         
         # Calculate metrics
         acc = accuracy_score(y_test, ensemble_pred)
@@ -673,18 +711,18 @@ class UltraAdvancedTrainer:
             if min_count <= 1:
                 # Too few samples for SMOTE. Fall back to simple random oversampling.
                 print("\nWARNING: Some classes have <=1 samples. Falling back to RandomOverSampler for Stage 2 balancing.")
-                ros = RandomOverSampler(random_state=42)
+                ros = RandomOverSampler(random_state=57)
                 X_res, y_res = ros.fit_resample(X_train_s2_scaled, y_train_s2)
                 # Then apply undersampling to balance if requested
-                undersampler = RandomUnderSampler(random_state=42)
+                undersampler = RandomUnderSampler(random_state=57)
                 X_train_s2_balanced, y_train_s2_balanced = undersampler.fit_resample(X_res, y_res)
             else:
                 # Safe k where k_neighbors < min_count
                 k_safe = max(1, min(config_k, min_count - 1))
                 print(f"\nUsing SMOTE with k_neighbors={k_safe} (min class size: {min_count})")
-                smote = SMOTE(random_state=42, k_neighbors=k_safe)
+                smote = SMOTE(random_state=57, k_neighbors=k_safe)
                 X_res, y_res = smote.fit_resample(X_train_s2_scaled, y_train_s2)
-                undersampler = RandomUnderSampler(random_state=42)
+                undersampler = RandomUnderSampler(random_state=57)
                 X_train_s2_balanced, y_train_s2_balanced = undersampler.fit_resample(X_res, y_res)
         else:
             # Non-undersampling path: adapt k_neighbors similarly
@@ -693,12 +731,12 @@ class UltraAdvancedTrainer:
             config_k = int(self.config['stage2_multiclass']['balancing'].get('k_neighbors', 5))
             if min_count <= 1:
                 print("\nWARNING: Some classes have <=1 samples. Falling back to RandomOverSampler for Stage 2 balancing.")
-                ros = RandomOverSampler(random_state=42)
+                ros = RandomOverSampler(random_state=57)
                 X_train_s2_balanced, y_train_s2_balanced = ros.fit_resample(X_train_s2_scaled, y_train_s2)
             else:
                 k_safe = max(1, min(config_k, min_count - 1))
                 print(f"\nUsing SMOTE with k_neighbors={k_safe} (min class size: {min_count})")
-                smote = SMOTE(random_state=42, k_neighbors=k_safe)
+                smote = SMOTE(random_state=57, k_neighbors=k_safe)
                 X_train_s2_balanced, y_train_s2_balanced = smote.fit_resample(X_train_s2_scaled, y_train_s2)
         
         print(f"\nBalanced distribution:")
@@ -735,7 +773,7 @@ class UltraAdvancedTrainer:
                 reg_lambda=lgb_params['reg_lambda'],
                 class_weight=lgb_params['class_weight'],
                 num_class=n_classes,
-                random_state=42,
+                random_state=57,
                 n_jobs=-1,
                 verbose=-1
             )
@@ -759,7 +797,7 @@ class UltraAdvancedTrainer:
                 reg_alpha=xgb_params['reg_alpha'],
                 reg_lambda=xgb_params['reg_lambda'],
                 num_class=n_classes,
-                random_state=42,
+                random_state=57,
                 n_jobs=-1,
                 verbosity=0
             )
@@ -780,7 +818,7 @@ class UltraAdvancedTrainer:
                 border_count=cb_params['border_count'],
                 random_strength=cb_params['random_strength'],
                 classes_count=n_classes,
-                random_state=42,
+                random_state=57,
                 verbose=0
             )
             self.stage2_models['catboost'].fit(X_train, y_train)
@@ -984,6 +1022,60 @@ class UltraAdvancedTrainer:
             'dataset': 'CIC-IoT-2023'
         }
         
+        # Add detailed feature information
+        self.metadata['model_inputs'] = {
+            'stage1': {
+                'description': 'Binary classification (Benign vs Attack)',
+                'input_features': self.feature_cols_s1 if hasattr(self, 'feature_cols_s1') else [],
+                'num_features': len(self.feature_cols_s1) if hasattr(self, 'feature_cols_s1') else 0,
+                'feature_types': {
+                    'original': [col for col in self.feature_cols_s1 if not any(x in col for x in ['_squared', '_sqrt', '_ratio', '_interaction', '_combo', 'log_', 'cv', 'range_stat', 'flag_diversity', 'burst_score'])] if hasattr(self, 'feature_cols_s1') else [],
+                    'engineered_statistical': [col for col in self.feature_cols_s1 if any(x in col for x in ['_ratio', 'cv', 'range_stat', 'flag_diversity'])] if hasattr(self, 'feature_cols_s1') else [],
+                    'engineered_polynomial': [col for col in self.feature_cols_s1 if any(x in col for x in ['_squared', '_sqrt'])] if hasattr(self, 'feature_cols_s1') else [],
+                    'engineered_interaction': [col for col in self.feature_cols_s1 if '_combo' in col or '_interaction' in col] if hasattr(self, 'feature_cols_s1') else [],
+                    'engineered_log': [col for col in self.feature_cols_s1 if col.startswith('log_')] if hasattr(self, 'feature_cols_s1') else [],
+                },
+                'scaler': str(type(self.scaler_s1).__name__) if hasattr(self, 'scaler_s1') else 'None',
+                'balancing_method': self.config['stage1_binary']['balancing']['method'],
+                'output': {
+                    'type': 'binary',
+                    'classes': ['Benign', 'Attack'],
+                    'num_classes': 2
+                }
+            },
+            'stage2': {
+                'description': 'Multi-class attack categorization',
+                'input_features': [col for col in self.df_train.columns if col not in ['Label', 'Binary_Label', 'Category']] if hasattr(self, 'df_train') else [],
+                'num_features': len([col for col in self.df_train.columns if col not in ['Label', 'Binary_Label', 'Category']]) if hasattr(self, 'df_train') else 0,
+                'scaler': str(type(self.scaler_s2).__name__) if hasattr(self, 'scaler_s2') else 'None',
+                'balancing_method': self.config['stage2_multiclass']['balancing']['method'],
+                'label_encoder': {
+                    'classes': list(self.label_encoder_s2.classes_) if hasattr(self, 'label_encoder_s2') else [],
+                    'num_classes': len(self.label_encoder_s2.classes_) if hasattr(self, 'label_encoder_s2') else 0
+                },
+                'output': {
+                    'type': 'multiclass',
+                    'classes': list(self.label_encoder_s2.classes_) if hasattr(self, 'label_encoder_s2') else [],
+                    'num_classes': len(self.label_encoder_s2.classes_) if hasattr(self, 'label_encoder_s2') else 0
+                }
+            }
+        }
+        
+        # Add feature statistics
+        if hasattr(self, 'feature_cols_s1'):
+            self.metadata['feature_statistics'] = {
+                'total_features': len(self.feature_cols_s1),
+                'original_features_count': len([col for col in self.feature_cols_s1 if not any(x in col for x in ['_squared', '_sqrt', '_ratio', '_interaction', '_combo', 'log_', 'cv', 'range_stat', 'flag_diversity', 'burst_score'])]),
+                'engineered_features_count': len([col for col in self.feature_cols_s1 if any(x in col for x in ['_squared', '_sqrt', '_ratio', '_interaction', '_combo', 'log_', 'cv', 'range_stat', 'flag_diversity', 'burst_score'])]),
+                'feature_categories': {
+                    'statistical': len([col for col in self.feature_cols_s1 if any(x in col for x in ['_ratio', 'cv', 'range_stat', 'flag_diversity'])]),
+                    'polynomial': len([col for col in self.feature_cols_s1 if any(x in col for x in ['_squared', '_sqrt'])]),
+                    'interaction': len([col for col in self.feature_cols_s1 if '_combo' in col or '_interaction' in col]),
+                    'logarithmic': len([col for col in self.feature_cols_s1 if col.startswith('log_')])
+                },
+                'all_features': self.feature_cols_s1
+            }
+        
         # Save metadata JSON
         metadata_path = Path(self.config['output']['models_dir']) / self.config['output']['metadata_filename']
         with open(metadata_path, 'w') as f:
@@ -1009,6 +1101,32 @@ class UltraAdvancedTrainer:
             f.write(f"Validation samples: {self.metadata['training_data']['val_samples']:,}\n")
             f.write(f"Test samples: {self.metadata['training_data']['test_samples']:,}\n")
             f.write(f"Total features: {self.metadata['feature_engineering']['total_features']}\n\n")
+            
+            f.write("="*80 + "\n")
+            f.write("MODEL INPUTS & FEATURES\n")
+            f.write("="*80 + "\n")
+            if 'model_inputs' in self.metadata:
+                f.write(f"\nStage 1 (Binary Classification):\n")
+                f.write(f"  Input features: {self.metadata['model_inputs']['stage1']['num_features']}\n")
+                f.write(f"  Scaler: {self.metadata['model_inputs']['stage1']['scaler']}\n")
+                f.write(f"  Balancing: {self.metadata['model_inputs']['stage1']['balancing_method']}\n")
+                
+                f.write(f"\nStage 2 (Multi-Class):\n")
+                f.write(f"  Input features: {self.metadata['model_inputs']['stage2']['num_features']}\n")
+                f.write(f"  Scaler: {self.metadata['model_inputs']['stage2']['scaler']}\n")
+                f.write(f"  Balancing: {self.metadata['model_inputs']['stage2']['balancing_method']}\n")
+                f.write(f"  Attack categories: {', '.join(self.metadata['model_inputs']['stage2']['output']['classes'])}\n")
+            
+            if 'feature_statistics' in self.metadata:
+                f.write(f"\nFeature Engineering:\n")
+                f.write(f"  Total features: {self.metadata['feature_statistics']['total_features']}\n")
+                f.write(f"  Original features: {self.metadata['feature_statistics']['original_features_count']}\n")
+                f.write(f"  Engineered features: {self.metadata['feature_statistics']['engineered_features_count']}\n")
+                f.write(f"    - Statistical: {self.metadata['feature_statistics']['feature_categories']['statistical']}\n")
+                f.write(f"    - Polynomial: {self.metadata['feature_statistics']['feature_categories']['polynomial']}\n")
+                f.write(f"    - Interaction: {self.metadata['feature_statistics']['feature_categories']['interaction']}\n")
+                f.write(f"    - Logarithmic: {self.metadata['feature_statistics']['feature_categories']['logarithmic']}\n")
+            f.write("\n")
             
             f.write("="*80 + "\n")
             f.write("STAGE 1: BINARY CLASSIFICATION\n")
@@ -1081,7 +1199,8 @@ class UltraAdvancedTrainer:
             # Step 3-5: Stage 1
             X_train_s1, y_train_s1, X_val_s1, y_val_s1, X_test_s1, y_test_s1, self.feature_cols_s1 = self.prepare_stage1_data()
             self.train_stage1(X_train_s1, y_train_s1, X_val_s1, y_val_s1)
-            y_stage1_pred, *stage1_metrics = self.evaluate_stage1(X_test_s1, y_test_s1)
+            # Use validation set to tune ensemble threshold, then evaluate on test set
+            y_stage1_pred, *stage1_metrics = self.evaluate_stage1(X_val_s1, y_val_s1, X_test_s1, y_test_s1)
             
             # Step 6-8: Stage 2
             X_train_s2, y_train_s2, X_val_s2, y_val_s2, X_test_s2, y_test_s2, attack_mask = self.prepare_stage2_data(X_test_s1, y_stage1_pred)
@@ -1119,6 +1238,8 @@ class UltraAdvancedTrainer:
             raise
 
 if __name__ == "__main__":
+    import sys
     # Run ultra advanced training
-    trainer = UltraAdvancedTrainer()
+    config_file = sys.argv[1] if len(sys.argv) > 1 else 'config_train_ultra_advanced.yaml'
+    trainer = UltraAdvancedTrainer(config_path=config_file)
     trainer.run()

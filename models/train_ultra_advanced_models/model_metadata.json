@@ -1,0 +1,268 @@
+{
+  "model_info": {
+    "name": "IoTGuard Ultra Advanced 2-Stage Ensemble",
+    "version": "2.0",
+    "architecture": "2-Stage: Binary + Multi-Class Classification",
+    "created_at": "2025-12-14T15:29:06.285332",
+    "training_duration": "0:08:46.730246",
+    "framework": "LightGBM + XGBoost + CatBoost + TensorFlow",
+    "dataset": "CIC-IoT-2023"
+  },
+  "training_data": {
+    "train_samples": 392553,
+    "val_samples": 234078,
+    "test_samples": 243684,
+    "train_files": 12,
+    "val_files": 4,
+    "test_files": 4,
+    "dataset_name": "CIC-IoT-2023"
+  },
+  "stage1_binary": {
+    "purpose": "Binary classification (Benign vs Attack)",
+    "models": [
+      "lightgbm",
+      "xgboost"
+    ],
+    "ensemble_weights": {
+      "lightgbm": 0.4,
+      "xgboost": 0.6,
+      "catboost": 0.0,
+      "neural_network": 0.0
+    },
+    "performance": {
+      "accuracy": 0.9137161241607984,
+      "precision": 0.9327868387462771,
+      "recall": 0.9471328590766395,
+      "f1_score": 0.9399051103235395,
+      "mcc": 0.7872949878163246,
+      "confusion_matrix": [
+        [
+          58231,
+          11848
+        ],
+        [
+          9178,
+          164427
+        ]
+      ]
+    },
+    "hyperparameters": {
+      "lightgbm": {
+        "enabled": true,
+        "num_leaves": 95,
+        "max_depth": 12,
+        "learning_rate": 0.04,
+        "n_estimators": 500,
+        "min_child_samples": 12,
+        "subsample": 0.85,
+        "colsample_bytree": 0.85,
+        "reg_alpha": 0.01,
+        "reg_lambda": 0.01,
+        "class_weight": "balanced",
+        "is_unbalance": true
+      },
+      "xgboost": {
+        "enabled": true,
+        "max_depth": 13,
+        "learning_rate": 0.05,
+        "n_estimators": 500,
+        "min_child_weight": 1,
+        "subsample": 0.85,
+        "colsample_bytree": 0.85,
+        "gamma": 0.01,
+        "reg_alpha": 0.01,
+        "reg_lambda": 0.1,
+        "scale_pos_weight": 6.0
+      },
+      "catboost": {
+        "enabled": false,
+        "depth": 10,
+        "learning_rate": 0.03,
+        "iterations": 500,
+        "l2_leaf_reg": 3.0,
+        "border_count": 128,
+        "random_strength": 0.5
+      },
+      "neural_network": {
+        "enabled": false,
+        "hidden_layers": [
+          256,
+          128,
+          64,
+          32
+        ],
+        "dropout_rate": 0.3,
+        "activation": "relu",
+        "optimizer": "adam",
+        "learning_rate": 0.001,
+        "batch_size": 512,
+        "epochs": 50,
+        "early_stopping_patience": 10
+      }
+    }
+  },
+  "stage2_multiclass": {
+    "purpose": "Multi-class attack categorization",
+    "models": [
+      "lightgbm",
+      "xgboost"
+    ],
+    "ensemble_weights": {
+      "lightgbm": 0.5,
+      "xgboost": 0.5,
+      "catboost": 0.0
+    },
+    "attack_categories": [
+      "BruteForce",
+      "DDoS-DoS",
+      "Mirai",
+      "Reconnaissance",
+      "Spoofing",
+      "Unknown",
+      "Web-Based"
+    ],
+    "n_classes": 7,
+    "performance": {
+      "accuracy": 0.9606816398766626,
+      "precision": 0.9691078544153401,
+      "recall": 0.9606816398766626,
+      "f1_score": 0.9643216585717334,
+      "confusion_matrix": [
+        [
+          384,
+          0,
+          0,
+          205,
+          33,
+          0,
+          33
+        ],
+        [
+          0,
+          47956,
+          41,
+          3,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          30,
+          47970,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          949,
+          0,
+          0,
+          33991,
+          1094,
+          0,
+          1297
+        ],
+        [
+          224,
+          2,
+          0,
+          1297,
+          27101,
+          0,
+          464
+        ],
+        [
+          0,
+          0,
+          0,
+          1,
+          0,
+          1,
+          0
+        ],
+        [
+          51,
+          0,
+          0,
+          633,
+          108,
+          0,
+          559
+        ]
+      ]
+    },
+    "hyperparameters": {
+      "lightgbm": {
+        "enabled": true,
+        "num_leaves": 95,
+        "max_depth": 14,
+        "learning_rate": 0.03,
+        "n_estimators": 500,
+        "min_child_samples": 15,
+        "subsample": 0.85,
+        "colsample_bytree": 0.85,
+        "reg_alpha": 0.05,
+        "reg_lambda": 0.05,
+        "class_weight": "balanced"
+      },
+      "xgboost": {
+        "enabled": true,
+        "max_depth": 13,
+        "learning_rate": 0.03,
+        "n_estimators": 500,
+        "min_child_weight": 1,
+        "subsample": 0.85,
+        "colsample_bytree": 0.85,
+        "gamma": 0.05,
+        "reg_alpha": 0.05,
+        "reg_lambda": 0.5
+      },
+      "catboost": {
+        "enabled": false,
+        "depth": 10,
+        "learning_rate": 0.02,
+        "iterations": 600,
+        "l2_leaf_reg": 3.0,
+        "border_count": 128,
+        "random_strength": 0.5,
+        "class_weights": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      }
+    }
+  },
+  "full_pipeline": {
+    "accuracy": 0.6482247500861772,
+    "precision": 0.6882519125212243,
+    "recall": 0.6482247500861772,
+    "f1_score": 0.6662554132967653,
+    "benign_detection_rate": 1.0,
+    "attack_detection_rate": 0.9471328590766395,
+    "total_test_samples": 243684,
+    "benign_samples": 70079,
+    "attack_samples": 173605
+  },
+  "feature_engineering": {
+    "original_features": 39,
+    "engineered_features": 29,
+    "total_features": 68,
+    "feature_types": {
+      "statistical": true,
+      "time_based": true,
+      "polynomial": false
+    }
+  },
+  "files": {
+    "stage1_model": "../../models/train_ultra_advanced_models/ultra_advanced_stage1_ensemble.pkl",
+    "stage2_model": "../../models/train_ultra_advanced_models/ultra_advanced_stage2_ensemble.pkl",
+    "config": "config_train_ultra_advanced.yaml",
+    "results_dir": "../../results/train_ultra_advanced_results/"
+  }
+}

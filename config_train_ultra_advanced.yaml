@@ -2,22 +2,22 @@
 # CIC-IoT-2023 Dataset - Optimized for Maximum Performance
 
 dataset:
-  merged_csv_path: "../../dataset/CSV/MERGED_CSV/"
+  merged_csv_path: "dataset/CSV/MERGED_CSV/"
   csv_pattern: "Merged*.csv"
-  train_files: 12  # INCREASED from 10 for better model quality
-  test_files: 4    # Number of files for testing
-  val_files: 4     # INCREASED from 3 for better validation
+  train_files: 12  # Reduced to avoid memory issues
+  test_files: 4    # Keep balanced split
+  val_files: 4     # Keep balanced split
   
 data_processing:
   # Advanced sampling strategy for class balance
   benign_sampling: "all"  # Keep all benign samples
-  attack_sampling_per_class: 47750 # BALANCED sampling to not overshadow rare classes
+  attack_sampling_per_class: 48000 # Slightly increased for better patterns
   min_samples_per_class: 500  # Keep rare classes (Web-Based: 3400, BruteForce: 1836)
   
   # Feature engineering
-  polynomial_features: true  # DISABLED to reduce memory usage
+  polynomial_features: false  # DISABLED to reduce memory usage
   polynomial_degree: 2
-  interaction_features: true
+  interaction_features: true  # RE-ENABLED - important for attack patterns
   statistical_features: true
   time_based_features: true
   
@@ -85,32 +85,33 @@ stage1_binary:
   models:
     lightgbm:
       enabled: true
-      num_leaves: 63
-      max_depth: 12   # INCREASED from 10 for better learning
-      learning_rate: 0.05
-      n_estimators: 400  # INCREASED from 300
-      min_child_samples: 20  # REDUCED to allow better fitting
-      subsample: 0.9  # INCREASED to use more data
-      colsample_bytree: 0.9
-      reg_alpha: 0.05  # REDUCED regularization to fit better
-      reg_lambda: 0.05
+      num_leaves: 95   # Balanced - not too deep to avoid overfitting
+      max_depth: 12    # Moderate depth for efficiency
+      learning_rate: 0.04  # Slightly faster learning
+      n_estimators: 500    # Good balance
+      min_child_samples: 12  # Lower to catch attack patterns
+      subsample: 0.85
+      colsample_bytree: 0.85
+      reg_alpha: 0.01  # MINIMAL regularization - priority on recall
+      reg_lambda: 0.01
       class_weight: "balanced"
+      is_unbalance: true  # Force attention to minority class (attacks)
       
     xgboost:
       enabled: true
-      max_depth: 12   # INCREASED from 10
-      learning_rate: 0.05
-      n_estimators: 400  # INCREASED from 300
-      min_child_weight: 2  # REDUCED from 3 to allow better fitting
-      subsample: 0.9  # INCREASED to use more data
-      colsample_bytree: 0.9
-      gamma: 0.05  # REDUCED for less aggressive pruning
-      reg_alpha: 0.05
-      reg_lambda: 0.5
-      scale_pos_weight: 3.0  # INCREASED from 2.0 to prioritize catching attacks
+      max_depth: 13    # Moderate depth for memory efficiency
+      learning_rate: 0.05  # Balanced learning rate
+      n_estimators: 500    # Good balance
+      min_child_weight: 1  # MINIMIZED to catch all attack patterns
+      subsample: 0.85
+      colsample_bytree: 0.85
+      gamma: 0.01  # MINIMAL pruning - keep attack-detecting branches
+      reg_alpha: 0.01
+      reg_lambda: 0.1
+      scale_pos_weight: 8.0  # INCREASED to 8.0 - further prioritize catching attacks
       
     catboost:
-      enabled: false  # DISABLED to speed up training
+      enabled: true  # DISABLED to speed up training
       depth: 10
       learning_rate: 0.03
       iterations: 500
@@ -119,7 +120,7 @@ stage1_binary:
       random_strength: 0.5
       
     neural_network:
-      enabled: false  # DISABLED to speed up training
+      enabled: true  # DISABLED to speed up training
       hidden_layers: [256, 128, 64, 32]
       dropout_rate: 0.3
       activation: "relu"
@@ -132,43 +133,57 @@ stage1_binary:
   ensemble:
     method: "weighted_average"  # Options: weighted_average, stacking, voting
     weights:
-      lightgbm: 0.45  # INCREASED - strong baseline model
-      xgboost: 0.55   # INCREASED - prioritizes attack detection with scale_pos_weight=3.0
-      catboost: 0.00  # Disabled
-      neural_network: 0.00  # Disabled
+      lightgbm: 0.25  # Slightly reduced to accommodate NN weight
+      xgboost: 0.65   # Favor XGBoost for attack detection
+      catboost: 0.00
+      neural_network: 0.10  # Small contribution from NN
   
   balancing:
-    method: "smote_tomek"  # Options: smote, adasyn, smote_tomek, smote_enn
-    sampling_strategy: "auto"
-    k_neighbors: 5
+    method: "smote"  # Using pure SMOTE for maximum attack examples
+    sampling_strategy: 0.85  # Generate more attack samples (85% of benign count)
+    k_neighbors: 5  # Standard for stability
+  
+  # Threshold tuning parameters
+  min_precision_for_threshold: 0.45  # Minimum precision to maintain when tuning threshold for recall
+
+# Optional neural network (small, memory-friendly) for Stage 1 - can be enabled when desired
+stage1_nn:
+  enabled: true
+  hidden_layers: [128, 64]
+  dropout_rate: 0.25
+  activation: "relu"
+  learning_rate: 0.001
+  batch_size: 512
+  epochs: 12
+  early_stopping_patience: 4
 
 # Stage 2: Multi-Class Attack Classification
 stage2_multiclass:
   models:
     lightgbm:
       enabled: true
-      num_leaves: 63  # REDUCED from 127
-      max_depth: 10   # REDUCED from 15
+      num_leaves: 95   # INCREASED for better multi-class separation
+      max_depth: 14    # INCREASED for complex attack patterns
       learning_rate: 0.03
-      n_estimators: 300  # REDUCED from 600
-      min_child_samples: 20
-      subsample: 0.8
-      colsample_bytree: 0.8
-      reg_alpha: 0.1
-      reg_lambda: 0.1
+      n_estimators: 500  # INCREASED for better convergence
+      min_child_samples: 15  # REDUCED to learn rare attack types better
+      subsample: 0.85
+      colsample_bytree: 0.85
+      reg_alpha: 0.05  # REDUCED regularization
+      reg_lambda: 0.05
       class_weight: "balanced"
       
     xgboost:
       enabled: true
-      max_depth: 10   # REDUCED from 12
+      max_depth: 13    # INCREASED for better patterns
       learning_rate: 0.03
-      n_estimators: 300  # REDUCED from 600
-      min_child_weight: 2
-      subsample: 0.8
-      colsample_bytree: 0.8
-      gamma: 0.1
-      reg_alpha: 0.1
-      reg_lambda: 1.0
+      n_estimators: 500  # INCREASED for better convergence
+      min_child_weight: 1  # MINIMIZED to catch all attack types
+      subsample: 0.85
+      colsample_bytree: 0.85
+      gamma: 0.05  # REDUCED for less pruning
+      reg_alpha: 0.05
+      reg_lambda: 0.5
       
     catboost:
       enabled: false  # DISABLED to speed up training
@@ -183,9 +198,9 @@ stage2_multiclass:
   ensemble:
     method: "weighted_average"
     weights:
-      lightgbm: 0.40
-      xgboost: 0.35
-      catboost: 0.25
+      lightgbm: 0.50  # INCREASED - good for multi-class
+      xgboost: 0.50   # BALANCED with LightGBM
+      catboost: 0.00
   
   balancing:
     method: "smote_undersampling"  # SMOTE + RandomUnderSampler
@@ -215,9 +230,9 @@ training:
 
 # Output Configuration
 output:
-  models_dir: "../../models/train_ultra_advanced_models/"
-  results_dir: "../../results/train_ultra_advanced_results/"
-  logs_dir: "../../logs/"
+  models_dir: "models/train_ultra_advanced_models/"
+  results_dir: "results/train_ultra_advanced_results/"
+  logs_dir: "logs/"
   
   # Metadata
   generate_metadata: true
