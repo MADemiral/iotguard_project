@@ -133,10 +133,10 @@ stage1_binary:
   ensemble:
     method: "weighted_average"  # Options: weighted_average, stacking, voting
     weights:
-      lightgbm: 0.25  # Slightly reduced to accommodate NN weight
-      xgboost: 0.65   # Favor XGBoost for attack detection
+      lightgbm: 0.30  # Increased since NN is disabled
+      xgboost: 0.70   # Heavily favor XGBoost for attack detection
       catboost: 0.00
-      neural_network: 0.10  # Small contribution from NN
+      neural_network: 0.00  # Disabled due to GPU compatibility
   
   balancing:
     method: "smote"  # Using pure SMOTE for maximum attack examples
@@ -146,9 +146,9 @@ stage1_binary:
   # Threshold tuning parameters
   min_precision_for_threshold: 0.45  # Minimum precision to maintain when tuning threshold for recall
 
-# Optional neural network (small, memory-friendly) for Stage 1 - can be enabled when desired
+# Optional neural network (small, memory-friendly) for Stage 1 - DISABLED due to GPU compatibility
 stage1_nn:
-  enabled: true
+  enabled: false
   hidden_layers: [128, 64]
   dropout_rate: 0.25
   activation: "relu"
