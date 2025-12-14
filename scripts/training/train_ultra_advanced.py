@@ -180,6 +180,12 @@ class UltraAdvancedTrainer:
             print(f"  [{i}/{len(files)}] Loading {Path(file).name}...", end=' ')
             df = pd.read_csv(file)
             
+            # Clean data: remove rows with NaN labels
+            original_len = len(df)
+            df = df.dropna(subset=['Label'])
+            if len(df) < original_len:
+                print(f"(removed {original_len - len(df)} NaN labels) ", end='')
+            
             # Separate benign and attacks
             benign = df[df['Label'] == 'BENIGN']
             attacks = df[df['Label'] != 'BENIGN']
@@ -247,6 +253,11 @@ class UltraAdvancedTrainer:
     
     def get_attack_category(self, label):
         """Map attack label to category"""
+        # Handle NaN or non-string labels
+        if pd.isna(label) or not isinstance(label, str):
+            print(f"WARNING: Invalid label type '{type(label).__name__}' with value '{label}' - will be excluded")
+            return None
+        
         # Normalize label to uppercase for matching
         label_upper = label.upper()
         
