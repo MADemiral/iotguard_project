@@ -18,9 +18,11 @@ Author: IoTGuard Team
 Date: December 2025
 """
 
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Reduce TensorFlow logging
+
 import pandas as pd
 import numpy as np
-import os
 import sys
 import glob
 import json
@@ -51,6 +53,14 @@ except ImportError:
 
 # Deep Learning
 try:
+    import tensorflow as tf
+    
+    # Force TensorFlow to use CPU (RTX 5070 Ti compute 12.0 not supported yet)
+    # XGBoost and LightGBM will still use GPU
+    tf.config.set_visible_devices([], 'GPU')
+    print("✓ TensorFlow loaded in CPU-only mode (GPU compatibility workaround for compute 12.0)")
+    print("  Note: XGBoost and LightGBM will still use GPU for acceleration")
+    
     from tensorflow import keras
     from tensorflow.keras import layers, models, callbacks
     TENSORFLOW_AVAILABLE = True
@@ -170,6 +180,91 @@ class UltraAdvancedTrainer:
             'dataset_name': 'CIC-IoT-2023'
         }
     
+    def load_additional_samples_from_csv(self, category, needed_samples):
+        """Load additional samples from dataset/CSV/CSV/ folders for rare attack types"""
+        base_csv_path = Path("dataset/CSV/CSV")
+        
+        # Map category to folder names (based on class_mapping)
+        category_attacks = self.config['class_mapping'].get(category, [])
+        if not category_attacks:
+            print(f"    ✗ No attack types found for category '{category}'")
+            return pd.DataFrame()
+        
+        additional_samples = []
+        total_loaded = 0
+        print(f"    → Loading up to {needed_samples:,} additional samples from CSV/CSV/ folders...")
+        print(f"    → Looking for subclass folders: {category_attacks}")
+        
+        for attack_label in category_attacks:
+            if total_loaded >= needed_samples:
+                break
+                
+            # Map attack labels to actual folder names (case-sensitive matching)
+            folder_mapping = {
+                'DICTIONARYBRUTEFORCE': 'DictionaryBruteForce',
+                'BROWSERHIJACKING': 'BrowserHijacking',
+                'COMMANDINJECTION': 'CommandInjection',
+                'SQLINJECTION': 'SqlInjection',
+                'XSS': 'XSS',
+                'UPLOADING_ATTACK': 'Uploading_Attack',
+                'BACKDOOR_MALWARE': 'Backdoor_Malware',
+                'DNS_SPOOFING': 'DNS_Spoofing',
+                'MITM-ARPSPOOFING': 'MITM-ArpSpoofing',
+                'VULNERABILITYSCAN': 'VulnerabilityScan',
+                'RECON-HOSTDISCOVERY': 'Recon-HostDiscovery',
+                'RECON-OSSCAN': 'Recon-OSScan',
+                'RECON-PINGSWEEP': 'Recon-PingSweep',
+                'RECON-PORTSCAN': 'Recon-PortScan',
+            }
+            
+            # Get the correct folder name
+            folder_name = folder_mapping.get(attack_label, attack_label)
+            attack_folder = base_csv_path / folder_name
+            
+            if not attack_folder.exists() or not attack_folder.is_dir():
+                print(f"      ✗ Folder not found: {attack_folder}")
+                continue
+            
+            print(f"      ✓ Found folder: {attack_folder}")
+            
+            
+            # Load all CSV files from the folder to get as much real data as possible
+            csv_files = list(attack_folder.glob("*.csv"))
+            if not csv_files:
+                continue
+            
+            for csv_file in csv_files:
+                if total_loaded >= needed_samples:
+                    break
+                try:
+                    # Load samples from file (limit to what we still need)
+                    remaining_needed = needed_samples - total_loaded
+                    df = pd.read_csv(csv_file, nrows=remaining_needed)
+                    
+                    # Add Label column if it doesn't exist (raw CSV files from CSV/CSV/)
+                    if 'Label' not in df.columns:
+                        # Infer label from folder name or attack_label
+                        df['Label'] = attack_label
+                        print(f"      → Added Label column: '{attack_label}'")
+                    
+                    # Clean NaN values
+                    df = df.dropna(subset=['Label'])
+                    if len(df) > 0:
+                        additional_samples.append(df)
+                        total_loaded += len(df)
+                        print(f"      • {attack_folder.name}/{csv_file.name}: +{len(df):,} samples (total: {total_loaded:,})")
+                except Exception as e:
+                    print(f"      ✗ Failed to load {csv_file.name}: {e}")
+        
+        if not additional_samples:
+            print(f"    → No additional samples found in CSV/CSV folders")
+            return pd.DataFrame()
+        
+        # Combine all additional samples
+        combined = pd.concat(additional_samples, ignore_index=True)
+        print(f"    → Loaded {len(combined):,} real samples from CSV/CSV folders")
+        return combined
+    
     def load_and_balance_files(self, files, split_name):
         """Load files with intelligent sampling strategy"""
         dfs = []
@@ -218,24 +313,47 @@ class UltraAdvancedTrainer:
         min_samples = self.config['data_processing']['min_samples_per_class']
         
         print(f"\nSampling attacks (max {max_per_class:,} per category, min {min_samples}):")
+        print(f"Split: '{split_name}' (loading from CSV/CSV/ only if split_name == 'train')")
+        
         for category, rows in attack_dfs.items():
             category_df = pd.DataFrame(rows)
             original_count = len(category_df)
             
-            # For rare classes (BruteForce, Web-Based), keep ALL samples
-            if original_count < min_samples:
-                print(f"  WARNING: {category} has only {original_count} samples (< {min_samples})")
-                # Keep all samples for very rare classes
-                sampled_attacks.append(category_df)
+            # Only load additional data for TRAINING split, not validation/test
+            if split_name == "train" and original_count < 10000 and original_count < max_per_class:
+                print(f"  {category}: {original_count:,} samples → RARE, loading from CSV/CSV/ subclass folders")
+                
+                # Try to load as many real samples as possible from CSV subclass folders
+                needed_samples = max_per_class - original_count
+                additional_df = self.load_additional_samples_from_csv(category, needed_samples)
+                
+                if len(additional_df) > 0:
+                    # Combine with existing data
+                    category_df = pd.concat([category_df, additional_df], ignore_index=True)
+                    print(f"    → Total after loading real data: {len(category_df):,} samples")
+                
+                # Only use random oversampling if we still don't have enough real data
+                if len(category_df) < max_per_class:
+                    shortage = max_per_class - len(category_df)
+                    print(f"    → Still need {shortage:,} samples, using random oversampling")
+                    category_df = category_df.sample(n=max_per_class, replace=True, random_state=57)
+                elif len(category_df) > max_per_class:
+                    # Sample down if we have too many after loading additional data
+                    print(f"    → Have {len(category_df):,} samples, sampling down to {max_per_class:,}")
+                    category_df = category_df.sample(n=max_per_class, replace=False, random_state=57)
+                else:
+                    print(f"    → Perfect! Have exactly {max_per_class:,} real samples")
             elif original_count < max_per_class:
-                # Keep all samples if below max
-                sampled_attacks.append(category_df)
+                # For validation/test OR medium-sized categories: just random oversample
+                print(f"  {category}: {original_count:,} samples → random oversampling to {max_per_class:,}")
+                category_df = category_df.sample(n=max_per_class, replace=True, random_state=57)
             else:
-                # Sample down to max_per_class
-                category_df = category_df.sample(n=max_per_class, random_state=57)
-                sampled_attacks.append(category_df)
+                # Large categories: sample down to max_per_class
+                print(f"  {category}: {original_count:,} samples → sampling down to {max_per_class:,}")
+                category_df = category_df.sample(n=max_per_class, replace=False, random_state=57)
             
-            print(f"  {category:20s}: {len(category_df):,} samples (original: {original_count:,})")
+            sampled_attacks.append(category_df)
+            print(f"  ✓ {category:20s}: {len(category_df):,} samples (from merged: {original_count:,})")
         
         # Combine all data
         if sampled_attacks:
@@ -484,6 +602,8 @@ class UltraAdvancedTrainer:
                 reg_alpha=xgb_params['reg_alpha'],
                 reg_lambda=xgb_params['reg_lambda'],
                 scale_pos_weight=xgb_params['scale_pos_weight'],
+                tree_method=xgb_params.get('tree_method', 'hist'),
+                device=xgb_params.get('device', 'cpu'),  # GPU or CPU
                 random_state=57,
                 n_jobs=-1,
                 verbosity=0
@@ -830,6 +950,8 @@ class UltraAdvancedTrainer:
                 gamma=xgb_params['gamma'],
                 reg_alpha=xgb_params['reg_alpha'],
                 reg_lambda=xgb_params['reg_lambda'],
+                tree_method=xgb_params.get('tree_method', 'hist'),
+                device=xgb_params.get('device', 'cpu'),  # GPU or CPU
                 num_class=n_classes,
                 random_state=57,
                 n_jobs=-1,

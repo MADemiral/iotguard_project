@@ -4,15 +4,15 @@
 dataset:
   merged_csv_path: "dataset/CSV/MERGED_CSV/"
   csv_pattern: "Merged*.csv"
-  train_files: 12  # Reduced to avoid memory issues
-  test_files: 4    # Keep balanced split
-  val_files: 4     # Keep balanced split
+  train_files: 11  # Increased for better learning
+  test_files: 4   # Keep stable
+  val_files: 4    # Keep stable
   
 data_processing:
   # Advanced sampling strategy for class balance - OPTIMIZED for rare classes
   benign_sampling: "all"  # Keep all benign samples
-  attack_sampling_per_class: 60000 # INCREASED - give more training examples
-  min_samples_per_class: 100  # LOWERED to 100 to ensure rare classes are included
+  attack_sampling_per_class: 32000 # Increased for better patterns
+  min_samples_per_class: 100  # Ensure rare classes are fully included
   # BruteForce has ~1836 samples, Web-Based has ~3400 - we need ALL of them
   
   # Feature engineering
@@ -86,66 +86,68 @@ stage1_binary:
   models:
     lightgbm:
       enabled: true
-      num_leaves: 95   # Balanced - not too deep to avoid overfitting
-      max_depth: 12    # Moderate depth for efficiency
-      learning_rate: 0.04  # Slightly faster learning
-      n_estimators: 500    # Good balance
-      min_child_samples: 12  # Lower to catch attack patterns
-      subsample: 0.85
-      colsample_bytree: 0.85
-      reg_alpha: 0.01  # MINIMAL regularization - priority on recall
-      reg_lambda: 0.01
+      num_leaves: 95   # More capacity for patterns
+      max_depth: 13    # Deeper trees
+      learning_rate: 0.024  # Slower for precision
+      n_estimators: 520    # More trees
+      min_child_samples: 18  # Higher to reduce FP
+      subsample: 0.80
+      colsample_bytree: 0.80
+      reg_alpha: 0.025  # Stronger L1 regularization
+      reg_lambda: 0.025  # Stronger L2 regularization
       class_weight: "balanced"
       is_unbalance: true  # Force attention to minority class (attacks)
       
     xgboost:
       enabled: true
-      max_depth: 13    # Moderate depth for memory efficiency
-      learning_rate: 0.05  # Balanced learning rate
-      n_estimators: 500    # Good balance
-      min_child_weight: 1  # MINIMIZED to catch all attack patterns
-      subsample: 0.85
-      colsample_bytree: 0.85
-      gamma: 0.01  # MINIMAL pruning - keep attack-detecting branches
-      reg_alpha: 0.01
-      reg_lambda: 0.1
-      scale_pos_weight: 8.0  # INCREASED to 8.0 - further prioritize catching attacks
+      max_depth: 13    # Deeper for complexity
+      learning_rate: 0.024  # Slower learning
+      n_estimators: 520    # More trees for stability
+      min_child_weight: 4  # Higher to reduce false positives
+      subsample: 0.80
+      colsample_bytree: 0.80
+      gamma: 0.025  # More aggressive pruning
+      reg_alpha: 0.025
+      reg_lambda: 0.18  # Stronger L2
+      scale_pos_weight: 5.0  # Lower for better balance
+      tree_method: "hist"  # Use hist for GPU compatibility
+      device: "cuda"  # Enable GPU acceleration
       
     catboost:
-      enabled: true  # DISABLED to speed up training
-      depth: 10
-      learning_rate: 0.03
-      iterations: 500
-      l2_leaf_reg: 3.0
+      enabled: false  # DISABLED to save memory
+      depth: 11
+      learning_rate: 0.025
+      iterations: 650
+      l2_leaf_reg: 3.0  # More regularization
       border_count: 128
       random_strength: 0.5
       
     neural_network:
-      enabled: true  # DISABLED to speed up training
-      hidden_layers: [256, 128, 64, 32]
-      dropout_rate: 0.3
+      enabled: false  # DISABLED to save memory
+      hidden_layers: [256, 128, 64, 32]  # Standard capacity
+      dropout_rate: 0.3  # Standard dropout
       activation: "relu"
       optimizer: "adam"
-      learning_rate: 0.001
-      batch_size: 512
-      epochs: 50
+      learning_rate: 0.001  # Standard learning rate
+      batch_size: 1024  # Larger batch for CPU
+      epochs: 50  # Standard epochs
       early_stopping_patience: 10
   
   ensemble:
     method: "weighted_average"  # Options: weighted_average, stacking, voting
     weights:
-      lightgbm: 0.30  # Increased since NN is disabled
-      xgboost: 0.70   # Heavily favor XGBoost for attack detection
-      catboost: 0.00
-      neural_network: 0.00  # Disabled due to GPU compatibility
+      lightgbm: 0.50  # Equal weight for stability
+      xgboost: 0.50   # Equal weight for stability
+      catboost: 0.0   # Disabled
+      neural_network: 0.0  # Disabled
   
   balancing:
     method: "smote"  # Using pure SMOTE for maximum attack examples
-    sampling_strategy: 0.85  # Generate more attack samples (85% of benign count)
+    sampling_strategy: 0.70  # Lower ratio for better precision
     k_neighbors: 5  # Standard for stability
   
   # Threshold tuning parameters
-  min_precision_for_threshold: 0.45  # Minimum precision to maintain when tuning threshold for recall
+  min_precision_for_threshold: 0.68  # Higher to reduce false positives
 
 # Optional neural network (small, memory-friendly) for Stage 1 - DISABLED due to GPU compatibility
 stage1_nn:
@@ -163,35 +165,37 @@ stage2_multiclass:
   models:
     lightgbm:
       enabled: true
-      num_leaves: 127  # MAXIMIZED for rare class separation
-      max_depth: 16    # DEEPER for complex multi-class boundaries
-      learning_rate: 0.02  # SLOWER learning for careful fitting
-      n_estimators: 700  # MORE trees for rare classes
-      min_child_samples: 5  # MINIMAL - critical for rare classes like BruteForce
-      subsample: 0.85
-      colsample_bytree: 0.85
-      reg_alpha: 0.01  # MINIMAL regularization for rare classes
-      reg_lambda: 0.01
+      num_leaves: 100   # Higher for complex patterns
+      max_depth: 14    # Deeper for rare classes
+      learning_rate: 0.020  # Slower for precision
+      n_estimators: 600  # More trees for rare classes
+      min_child_samples: 3  # Lower for rare classes
+      subsample: 0.82
+      colsample_bytree: 0.82
+      reg_alpha: 0.018  # Balanced regularization
+      reg_lambda: 0.018
       class_weight: "balanced"
       is_unbalance: true  # Force balanced learning
       
     xgboost:
       enabled: true
-      max_depth: 16    # DEEPER for rare class patterns
-      learning_rate: 0.02  # SLOWER for careful multi-class learning
-      n_estimators: 700  # MORE trees
-      min_child_weight: 1  # MINIMIZED for rare classes
-      subsample: 0.85
-      colsample_bytree: 0.85
-      gamma: 0.01  # MINIMAL pruning - keep rare class branches
-      reg_alpha: 0.01  # MINIMAL regularization
-      reg_lambda: 0.1
+      max_depth: 14    # Deeper for complexity
+      learning_rate: 0.020  # Slower learning
+      n_estimators: 600  # More trees for stability
+      min_child_weight: 1  # Keep minimal for rare classes
+      subsample: 0.82
+      colsample_bytree: 0.82
+      gamma: 0.018  # Moderate pruning
+      reg_alpha: 0.018
+      reg_lambda: 0.13
+      tree_method: "hist"  # Use hist for GPU compatibility
+      device: "cuda"  # Enable GPU acceleration
       
     catboost:
-      enabled: false  # DISABLED to speed up training
-      depth: 10
+      enabled: false  # DISABLED to save memory
+      depth: 11
       learning_rate: 0.02
-      iterations: 600
+      iterations: 700
       l2_leaf_reg: 3.0
       border_count: 128
       random_strength: 0.5
@@ -200,20 +204,20 @@ stage2_multiclass:
   ensemble:
     method: "weighted_average"
     weights:
-      lightgbm: 0.50  # INCREASED - good for multi-class
-      xgboost: 0.50   # BALANCED with LightGBM
-      catboost: 0.00
+      lightgbm: 0.48  # Balanced ensemble
+      xgboost: 0.52   # Balanced ensemble
+      catboost: 0.0   # Disabled
   
   balancing:
     method: "smote_undersampling"  # SMOTE + RandomUnderSampler - best for multi-class
     smote_strategy: "not majority"  # Boost minority classes
     undersample_strategy: "not minority"  # Reduce only majority classes
-    k_neighbors: 3  # REDUCED for rare classes (BruteForce/Web-Based may have <5 neighbors)
+    k_neighbors: 5  # Higher for better synthesis
 
 # Training Configuration
 training:
   random_seed: 42
-  use_gpu: false
+  use_gpu: true  # Enable GPU acceleration (RTX 5070 Ti)
   n_jobs: -1  # Use all CPU cores
   verbose: 1
   

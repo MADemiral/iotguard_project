@@ -3,105 +3,103 @@
     "name": "IoTGuard Ultra Advanced 2-Stage Ensemble",
     "version": "2.0",
     "architecture": "2-Stage: Binary + Multi-Class Classification",
-    "created_at": "2025-12-14T20:47:20.285354",
-    "training_duration": "0:20:56.928860",
+    "created_at": "2025-12-14T22:52:53.551283",
+    "training_duration": "0:08:14.369137",
     "framework": "LightGBM + XGBoost + CatBoost + TensorFlow",
     "dataset": "CIC-IoT-2023"
   },
   "training_data": {
-    "train_samples": 392552,
-    "val_samples": 265687,
-    "test_samples": 272118,
-    "train_files": 12,
-    "val_files": 5,
-    "test_files": 5,
+    "train_samples": 369535,
+    "val_samples": 256892,
+    "test_samples": 263098,
+    "train_files": 11,
+    "val_files": 4,
+    "test_files": 4,
     "dataset_name": "CIC-IoT-2023"
   },
   "stage1_binary": {
     "purpose": "Binary classification (Benign vs Attack)",
     "models": [
       "lightgbm",
-      "xgboost",
-      "catboost",
-      "neural_network"
+      "xgboost"
     ],
     "ensemble_weights": {
-      "lightgbm": 0.32,
-      "xgboost": 0.46,
-      "catboost": 0.14,
-      "neural_network": 0.08
+      "lightgbm": 0.5,
+      "xgboost": 0.5,
+      "catboost": 0.0,
+      "neural_network": 0.0
     },
     "performance": {
-      "accuracy": 0.9044385156439486,
-      "precision": 0.9080007983909352,
-      "recall": 0.956709536520262,
-      "f1_score": 0.9317189986293385,
-      "mcc": 0.7758676730772762,
+      "accuracy": 0.8976693095348501,
+      "precision": 0.8942400924718549,
+      "recall": 0.9750989583333334,
+      "f1_score": 0.9329207371917052,
+      "mcc": 0.7310493111470653,
       "confusion_matrix": [
         [
-          68697,
-          17976
+          48956,
+          22142
         ],
         [
-          8028,
-          177417
+          4781,
+          187219
         ]
       ]
     },
     "hyperparameters": {
       "lightgbm": {
         "enabled": true,
-        "num_leaves": 120,
-        "max_depth": 15,
-        "learning_rate": 0.028,
-        "n_estimators": 750,
-        "min_child_samples": 7,
-        "subsample": 0.88,
-        "colsample_bytree": 0.88,
-        "reg_alpha": 0.003,
-        "reg_lambda": 0.003,
+        "num_leaves": 95,
+        "max_depth": 13,
+        "learning_rate": 0.024,
+        "n_estimators": 520,
+        "min_child_samples": 18,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+        "reg_alpha": 0.025,
+        "reg_lambda": 0.025,
         "class_weight": "balanced",
         "is_unbalance": true
       },
       "xgboost": {
         "enabled": true,
-        "max_depth": 15,
-        "learning_rate": 0.028,
-        "n_estimators": 750,
-        "min_child_weight": 1,
-        "subsample": 0.88,
-        "colsample_bytree": 0.88,
-        "gamma": 0.003,
-        "reg_alpha": 0.003,
-        "reg_lambda": 0.07,
-        "scale_pos_weight": 7.5,
+        "max_depth": 13,
+        "learning_rate": 0.024,
+        "n_estimators": 520,
+        "min_child_weight": 4,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+        "gamma": 0.025,
+        "reg_alpha": 0.025,
+        "reg_lambda": 0.18,
+        "scale_pos_weight": 5.0,
         "tree_method": "hist",
         "device": "cuda"
       },
       "catboost": {
-        "enabled": true,
-        "depth": 12,
-        "learning_rate": 0.023,
-        "iterations": 750,
-        "l2_leaf_reg": 2.0,
+        "enabled": false,
+        "depth": 11,
+        "learning_rate": 0.025,
+        "iterations": 650,
+        "l2_leaf_reg": 3.0,
         "border_count": 128,
         "random_strength": 0.5
       },
       "neural_network": {
-        "enabled": true,
+        "enabled": false,
         "hidden_layers": [
-          320,
-          160,
-          80,
-          40
+          256,
+          128,
+          64,
+          32
         ],
-        "dropout_rate": 0.28,
+        "dropout_rate": 0.3,
         "activation": "relu",
         "optimizer": "adam",
-        "learning_rate": 0.0009,
+        "learning_rate": 0.001,
         "batch_size": 1024,
-        "epochs": 55,
-        "early_stopping_patience": 12
+        "epochs": 50,
+        "early_stopping_patience": 10
       }
     }
   },
@@ -109,13 +107,12 @@
     "purpose": "Multi-class attack categorization",
     "models": [
       "lightgbm",
-      "xgboost",
-      "catboost"
+      "xgboost"
     ],
     "ensemble_weights": {
-      "lightgbm": 0.36,
-      "xgboost": 0.44,
-      "catboost": 0.2
+      "lightgbm": 0.48,
+      "xgboost": 0.52,
+      "catboost": 0.0
     },
     "attack_categories": [
       "BruteForce",
@@ -127,96 +124,96 @@
     ],
     "n_classes": 6,
     "performance": {
-      "accuracy": 0.9644509827130433,
-      "precision": 0.9623368581361589,
-      "recall": 0.9644509827130433,
-      "f1_score": 0.962992892132076,
+      "accuracy": 0.9130163071055822,
+      "precision": 0.9136004968669523,
+      "recall": 0.9130163071055822,
+      "f1_score": 0.9128116007122709,
       "confusion_matrix": [
         [
-          396,
+          29317,
           0,
           0,
-          420,
-          80,
-          23
+          745,
+          254,
+          920
         ],
         [
           0,
-          47935,
-          61,
-          4,
+          31966,
+          32,
+          2,
           0,
           0
         ],
         [
           0,
-          30,
-          47970,
+          19,
+          31980,
           0,
-          0,
+          1,
           0
         ],
         [
-          190,
+          2172,
           0,
           0,
-          40275,
-          1485,
-          331
+          22805,
+          703,
+          3762
         ],
         [
-          48,
+          574,
           0,
           0,
-          2132,
-          34033,
-          227
+          947,
+          27927,
+          1478
         ],
         [
-          11,
+          1271,
           0,
           0,
-          1092,
-          173,
-          501
+          2894,
+          511,
+          26939
         ]
       ]
     },
     "hyperparameters": {
       "lightgbm": {
         "enabled": true,
-        "num_leaves": 120,
-        "max_depth": 16,
-        "learning_rate": 0.023,
-        "n_estimators": 800,
+        "num_leaves": 100,
+        "max_depth": 14,
+        "learning_rate": 0.02,
+        "n_estimators": 600,
         "min_child_samples": 3,
-        "subsample": 0.88,
-        "colsample_bytree": 0.88,
-        "reg_alpha": 0.003,
-        "reg_lambda": 0.003,
+        "subsample": 0.82,
+        "colsample_bytree": 0.82,
+        "reg_alpha": 0.018,
+        "reg_lambda": 0.018,
         "class_weight": "balanced",
         "is_unbalance": true
       },
       "xgboost": {
         "enabled": true,
-        "max_depth": 16,
-        "learning_rate": 0.023,
-        "n_estimators": 800,
+        "max_depth": 14,
+        "learning_rate": 0.02,
+        "n_estimators": 600,
         "min_child_weight": 1,
-        "subsample": 0.88,
-        "colsample_bytree": 0.88,
-        "gamma": 0.003,
-        "reg_alpha": 0.003,
-        "reg_lambda": 0.07,
+        "subsample": 0.82,
+        "colsample_bytree": 0.82,
+        "gamma": 0.018,
+        "reg_alpha": 0.018,
+        "reg_lambda": 0.13,
         "tree_method": "hist",
         "device": "cuda"
       },
       "catboost": {
-        "enabled": true,
-        "depth": 12,
-        "learning_rate": 0.018,
-        "iterations": 800,
-        "l2_leaf_reg": 2.0,
+        "enabled": false,
+        "depth": 11,
+        "learning_rate": 0.02,
+        "iterations": 700,
+        "l2_leaf_reg": 3.0,
         "border_count": 128,
         "random_strength": 0.5,
         "class_weights": [
@@ -231,15 +228,15 @@
     }
   },
   "full_pipeline": {
-    "accuracy": 0.628808090607751,
-    "precision": 0.6541983073319895,
-    "recall": 0.628808090607751,
-    "f1_score": 0.6406821344324888,
+    "accuracy": 0.6496970710533717,
+    "precision": 0.6658300204626124,
+    "recall": 0.6496970710533717,
+    "f1_score": 0.6569245246704389,
     "benign_detection_rate": 1.0,
-    "attack_detection_rate": 0.956709536520262,
-    "total_test_samples": 272118,
-    "benign_samples": 86673,
-    "attack_samples": 185445
+    "attack_detection_rate": 0.9750989583333334,
+    "total_test_samples": 263098,
+    "benign_samples": 71098,
+    "attack_samples": 192000
   },
   "feature_engineering": {
     "original_features": 39,

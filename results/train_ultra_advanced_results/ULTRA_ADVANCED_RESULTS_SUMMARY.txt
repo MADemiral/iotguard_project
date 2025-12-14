@@ -4,41 +4,65 @@ IoTGuard Ultra Advanced Training Results
 
 Model: IoTGuard Ultra Advanced 2-Stage Ensemble
 Version: 2.0
-Created: 2025-12-14T15:29:06.285332
-Training Duration: 0:08:46.730246
+Created: 2025-12-14T22:52:53.551283
+Training Duration: 0:08:14.369137
 
 ================================================================================
 DATASET
 ================================================================================
-Training samples: 392,553
-Validation samples: 234,078
-Test samples: 243,684
+Training samples: 369,535
+Validation samples: 256,892
+Test samples: 263,098
 Total features: 68
+
+================================================================================
+MODEL INPUTS & FEATURES
+================================================================================
+
+Stage 1 (Binary Classification):
+  Input features: 68
+  Scaler: RobustScaler
+  Balancing: smote
+
+Stage 2 (Multi-Class):
+  Input features: 68
+  Scaler: RobustScaler
+  Balancing: smote_undersampling
+  Attack categories: BruteForce, DDoS-DoS, Mirai, Reconnaissance, Spoofing, Web-Based
+
+Feature Engineering:
+  Total features: 68
+  Original features: 45
+  Engineered features: 23
+    - Statistical: 15
+    - Polynomial: 0
+    - Interaction: 4
+    - Logarithmic: 3
 
 ================================================================================
 STAGE 1: BINARY CLASSIFICATION
 ================================================================================
-Accuracy:  0.9137
-Precision: 0.9328
-Recall:    0.9471
-F1-Score:  0.9399
-MCC:       0.7873
+Accuracy:  0.8977
+Precision: 0.8942
+Recall:    0.9751
+F1-Score:  0.9329
+MCC:       0.7310
 
 ================================================================================
 STAGE 2: MULTI-CLASS CLASSIFICATION
 ================================================================================
-Accuracy:  0.9607
-Precision: 0.9691
-Recall:    0.9607
-F1-Score:  0.9643
-Classes: 7
+Accuracy:  0.9130
+Precision: 0.9136
+Recall:    0.9130
+F1-Score:  0.9128
+Classes: 6
 
 ================================================================================
 FULL PIPELINE
 ================================================================================
-Accuracy:  0.6482
-Precision: 0.6883
-Recall:    0.6482
-F1-Score:  0.6663
+Accuracy:  0.6497
+Precision: 0.6658
+Recall:    0.6497
+F1-Score:  0.6569
 Benign Detection Rate: 1.0000
-Attack Detection Rate: 0.9471
+Attack Detection Rate: 0.9751
