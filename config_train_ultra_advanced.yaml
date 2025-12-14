@@ -9,10 +9,11 @@ dataset:
   val_files: 4     # Keep balanced split
   
 data_processing:
-  # Advanced sampling strategy for class balance
+  # Advanced sampling strategy for class balance - OPTIMIZED for rare classes
   benign_sampling: "all"  # Keep all benign samples
-  attack_sampling_per_class: 48000 # Slightly increased for better patterns
-  min_samples_per_class: 500  # Keep rare classes (Web-Based: 3400, BruteForce: 1836)
+  attack_sampling_per_class: 60000 # INCREASED - give more training examples
+  min_samples_per_class: 100  # LOWERED to 100 to ensure rare classes are included
+  # BruteForce has ~1836 samples, Web-Based has ~3400 - we need ALL of them
   
   # Feature engineering
   polynomial_features: false  # DISABLED to reduce memory usage
@@ -162,28 +163,29 @@ stage2_multiclass:
   models:
     lightgbm:
       enabled: true
-      num_leaves: 95   # INCREASED for better multi-class separation
-      max_depth: 14    # INCREASED for complex attack patterns
-      learning_rate: 0.03
-      n_estimators: 500  # INCREASED for better convergence
-      min_child_samples: 15  # REDUCED to learn rare attack types better
+      num_leaves: 127  # MAXIMIZED for rare class separation
+      max_depth: 16    # DEEPER for complex multi-class boundaries
+      learning_rate: 0.02  # SLOWER learning for careful fitting
+      n_estimators: 700  # MORE trees for rare classes
+      min_child_samples: 5  # MINIMAL - critical for rare classes like BruteForce
       subsample: 0.85
       colsample_bytree: 0.85
-      reg_alpha: 0.05  # REDUCED regularization
-      reg_lambda: 0.05
+      reg_alpha: 0.01  # MINIMAL regularization for rare classes
+      reg_lambda: 0.01
       class_weight: "balanced"
+      is_unbalance: true  # Force balanced learning
       
     xgboost:
       enabled: true
-      max_depth: 13    # INCREASED for better patterns
-      learning_rate: 0.03
-      n_estimators: 500  # INCREASED for better convergence
-      min_child_weight: 1  # MINIMIZED to catch all attack types
+      max_depth: 16    # DEEPER for rare class patterns
+      learning_rate: 0.02  # SLOWER for careful multi-class learning
+      n_estimators: 700  # MORE trees
+      min_child_weight: 1  # MINIMIZED for rare classes
       subsample: 0.85
       colsample_bytree: 0.85
-      gamma: 0.05  # REDUCED for less pruning
-      reg_alpha: 0.05
-      reg_lambda: 0.5
+      gamma: 0.01  # MINIMAL pruning - keep rare class branches
+      reg_alpha: 0.01  # MINIMAL regularization
+      reg_lambda: 0.1
       
     catboost:
       enabled: false  # DISABLED to speed up training
@@ -203,10 +205,10 @@ stage2_multiclass:
       catboost: 0.00
   
   balancing:
-    method: "smote_undersampling"  # SMOTE + RandomUnderSampler
-    smote_strategy: "not majority"
-    undersample_strategy: "auto"
-    k_neighbors: 5
+    method: "smote_undersampling"  # SMOTE + RandomUnderSampler - best for multi-class
+    smote_strategy: "not majority"  # Boost minority classes
+    undersample_strategy: "not minority"  # Reduce only majority classes
+    k_neighbors: 3  # REDUCED for rare classes (BruteForce/Web-Based may have <5 neighbors)
 
 # Training Configuration
 training:

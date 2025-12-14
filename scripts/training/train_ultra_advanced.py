@@ -190,6 +190,9 @@ class UltraAdvancedTrainer:
             for _, row in attacks.iterrows():
                 label = row['Label']
                 category = self.get_attack_category(label)
+                # Skip if category is None (unmapped/unknown labels)
+                if category is None:
+                    continue
                 if category not in attack_dfs:
                     attack_dfs[category] = []
                 attack_dfs[category].append(row)
@@ -203,17 +206,30 @@ class UltraAdvancedTrainer:
         else:
             all_benign = pd.DataFrame()
         
-        # Sample attacks per category
+        # Sample attacks per category with special handling for rare classes
         sampled_attacks = []
         max_per_class = self.config['data_processing']['attack_sampling_per_class']
+        min_samples = self.config['data_processing']['min_samples_per_class']
         
-        print(f"\nSampling attacks (max {max_per_class:,} per category):")
+        print(f"\nSampling attacks (max {max_per_class:,} per category, min {min_samples}):")
         for category, rows in attack_dfs.items():
             category_df = pd.DataFrame(rows)
-            if len(category_df) > max_per_class:
+            original_count = len(category_df)
+            
+            # For rare classes (BruteForce, Web-Based), keep ALL samples
+            if original_count < min_samples:
+                print(f"  WARNING: {category} has only {original_count} samples (< {min_samples})")
+                # Keep all samples for very rare classes
+                sampled_attacks.append(category_df)
+            elif original_count < max_per_class:
+                # Keep all samples if below max
+                sampled_attacks.append(category_df)
+            else:
+                # Sample down to max_per_class
                 category_df = category_df.sample(n=max_per_class, random_state=57)
-            sampled_attacks.append(category_df)
-            print(f"  {category:20s}: {len(category_df):,} samples")
+                sampled_attacks.append(category_df)
+            
+            print(f"  {category:20s}: {len(category_df):,} samples (original: {original_count:,})")
         
         # Combine all data
         if sampled_attacks:
@@ -231,10 +247,17 @@ class UltraAdvancedTrainer:
     
     def get_attack_category(self, label):
         """Map attack label to category"""
+        # Normalize label to uppercase for matching
+        label_upper = label.upper()
+        
         for category, attacks in self.config['class_mapping'].items():
-            if label in attacks:
+            # Check both original and uppercase versions
+            if label in attacks or label_upper in [a.upper() for a in attacks]:
                 return category
-        return 'Unknown'
+        
+        # Log unmapped labels for debugging
+        print(f"WARNING: Unmapped label '{label}' - will be excluded from training")
+        return None  # Return None instead of 'Unknown'
     
     def engineer_features(self, df, fit=True):
         """Advanced feature engineering"""
