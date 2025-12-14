@@ -121,6 +121,12 @@ class UltraAdvancedTrainer:
         
         print(f"Found {len(csv_files)} merged CSV files")
         
+        # RANDOMLY SHUFFLE FILES for better diversity
+        import random
+        random.seed(42)  # For reproducibility
+        random.shuffle(csv_files)
+        print("✓ Files shuffled randomly for diverse sampling")
+        
         # Split files into train/val/test
         n_train = self.config['dataset']['train_files']
         n_val = self.config['dataset']['val_files']
@@ -607,6 +613,24 @@ class UltraAdvancedTrainer:
         df_attacks_val['Category'] = df_attacks_val['Label'].apply(self.get_attack_category)
         df_attacks_test['Category'] = df_attacks_test['Label'].apply(self.get_attack_category)
         
+        # FILTER OUT any 'Benign' samples (false positives from Stage 1)
+        df_attacks_train = df_attacks_train[df_attacks_train['Category'] != 'Benign']
+        df_attacks_val = df_attacks_val[df_attacks_val['Category'] != 'Benign']
+        
+        # For test set, keep track of which indices to keep after filtering
+        test_benign_mask = df_attacks_test['Category'] == 'Benign'
+        df_attacks_test = df_attacks_test[df_attacks_test['Category'] != 'Benign']
+        
+        # Update attack_mask to reflect only true attacks (not false positives)
+        attack_indices = np.where(attack_mask)[0]
+        benign_fp_indices = attack_indices[test_benign_mask.values]
+        attack_mask[benign_fp_indices] = False  # Remove false positive predictions
+        
+        print(f"\nAfter filtering benign false positives:")
+        print(f"  Training:   {len(df_attacks_train):,}")
+        print(f"  Validation: {len(df_attacks_val):,}")
+        print(f"  Test:       {len(df_attacks_test):,} (removed {test_benign_mask.sum()} false positives)")
+        
         # Encode labels
         self.label_encoder_s2 = LabelEncoder()
         y_train_s2 = self.label_encoder_s2.fit_transform(df_attacks_train['Category'])
@@ -639,13 +663,43 @@ class UltraAdvancedTrainer:
         print(f"\n✓ Applying {balance_method} balancing...")
         
         if balance_method == 'smote_undersampling':
-            smote = SMOTE(random_state=42, k_neighbors=self.config['stage2_multiclass']['balancing']['k_neighbors'])
-            undersampler = RandomUnderSampler(random_state=42)
-            X_train_s2_balanced, y_train_s2_balanced = smote.fit_resample(X_train_s2_scaled, y_train_s2)
-            X_train_s2_balanced, y_train_s2_balanced = undersampler.fit_resample(X_train_s2_balanced, y_train_s2_balanced)
+            # Determine safe k_neighbors for SMOTE based on smallest class size
+            from imblearn.over_sampling import RandomOverSampler
+
+            class_counts = pd.Series(y_train_s2).value_counts()
+            min_count = int(class_counts.min()) if len(class_counts) > 0 else 0
+            config_k = int(self.config['stage2_multiclass']['balancing'].get('k_neighbors', 5))
+
+            if min_count <= 1:
+                # Too few samples for SMOTE. Fall back to simple random oversampling.
+                print("\nWARNING: Some classes have <=1 samples. Falling back to RandomOverSampler for Stage 2 balancing.")
+                ros = RandomOverSampler(random_state=42)
+                X_res, y_res = ros.fit_resample(X_train_s2_scaled, y_train_s2)
+                # Then apply undersampling to balance if requested
+                undersampler = RandomUnderSampler(random_state=42)
+                X_train_s2_balanced, y_train_s2_balanced = undersampler.fit_resample(X_res, y_res)
+            else:
+                # Safe k where k_neighbors < min_count
+                k_safe = max(1, min(config_k, min_count - 1))
+                print(f"\nUsing SMOTE with k_neighbors={k_safe} (min class size: {min_count})")
+                smote = SMOTE(random_state=42, k_neighbors=k_safe)
+                X_res, y_res = smote.fit_resample(X_train_s2_scaled, y_train_s2)
+                undersampler = RandomUnderSampler(random_state=42)
+                X_train_s2_balanced, y_train_s2_balanced = undersampler.fit_resample(X_res, y_res)
         else:
-            smote = SMOTE(random_state=42)
-            X_train_s2_balanced, y_train_s2_balanced = smote.fit_resample(X_train_s2_scaled, y_train_s2)
+            # Non-undersampling path: adapt k_neighbors similarly
+            class_counts = pd.Series(y_train_s2).value_counts()
+            min_count = int(class_counts.min()) if len(class_counts) > 0 else 0
+            config_k = int(self.config['stage2_multiclass']['balancing'].get('k_neighbors', 5))
+            if min_count <= 1:
+                print("\nWARNING: Some classes have <=1 samples. Falling back to RandomOverSampler for Stage 2 balancing.")
+                ros = RandomOverSampler(random_state=42)
+                X_train_s2_balanced, y_train_s2_balanced = ros.fit_resample(X_train_s2_scaled, y_train_s2)
+            else:
+                k_safe = max(1, min(config_k, min_count - 1))
+                print(f"\nUsing SMOTE with k_neighbors={k_safe} (min class size: {min_count})")
+                smote = SMOTE(random_state=42, k_neighbors=k_safe)
+                X_train_s2_balanced, y_train_s2_balanced = smote.fit_resample(X_train_s2_scaled, y_train_s2)
         
         print(f"\nBalanced distribution:")
         unique, counts = np.unique(y_train_s2_balanced, return_counts=True)
